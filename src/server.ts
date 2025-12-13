@@ -46,6 +46,7 @@ export type ResourceFile = {
 
 export type Resource = {
   id: number;
+  isDeleted?: boolean;
   title: string;
   author: string;
   sections: Section[];
@@ -180,7 +181,8 @@ if (!fs.existsSync(RESOURCES_PATH)) {
 // helper to read resources
 function readResources(): Resource[] {
   const raw = fs.readFileSync(RESOURCES_PATH, "utf-8");
-  return JSON.parse(raw) as Resource[];
+  const parsedResources =  JSON.parse(raw) as Resource[];
+  return parsedResources.filter(resource => !resource.isDeleted);
 }
 
 // helper to write resources
@@ -620,6 +622,7 @@ app.post("/resources", (req, res) => {
       id: resources.length
         ? Math.max(...resources.map((r) => r.id)) + 1
         : 1,
+      isDeleted: false,
       title: req.body.title,
       author: req.body.author,
       sections: req.body.sections ?? [],
@@ -681,12 +684,15 @@ app.delete("/resources/:id", (req, res) => {
     const resources = readResources();
     const initialLength = resources.length;
     const filtered = resources.filter((r) => r.id !== id);
-
     if (filtered.length === initialLength) {
       return res.status(404).json({ error: "Resource not found" });
     }
 
-    writeResources(filtered);
+    resources.filter((r) => r.id === id).forEach(r => r.isDeleted = true);
+
+
+
+    writeResources(resources);
     res.status(204).send();
   } catch (err) {
     console.error("DELETE /resources/:id error:", err);
