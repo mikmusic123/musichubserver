@@ -1,0 +1,71 @@
+[
+  {
+    "id": 1,
+    "title": "Testing Resources",
+    "author": "Mik",
+    "sections": [
+      {
+        "type": "text+video+left",
+        "subtitle": "rewgergh",
+        "text": "aaegtwgergerwg",
+        "video": "https://www.youtube.com/watch?v=vezT3XSJUUI"
+      }
+    ],
+    "links": [],
+    "files": []
+  },
+  {
+    "id": 2,
+    "title": "test 2",
+    "author": "Mikhail Zerafa",
+    "sections": [
+      {
+        "type": "text+video+right",
+        "subtitle": "test image right",
+        "text": "this is some text with the image on the right side",
+        "image": "https://www.youtube.com/watch?v=vezT3XSJUUI",
+        "video": "https://www.youtube.com/watch?v=vezT3XSJUUI"
+      },
+      {
+        "type": "text",
+        "subtitle": "this is just text",
+        "text": "Hey bro so this is the website so far"
+      },
+      {
+        "type": "text",
+        "subtitle": "text again",
+        "text": "add some text"
+      }
+    ],
+    "links": [],
+    "files": []
+  },
+  {
+    "id": 3,
+    "title": "Side Chaining",
+    "author": "Mik",
+    "sections": [
+      {
+        "type": "text",
+        "subtitle": "test subtitle",
+        "text": "ak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lTak\\gleukghekGHek kjwegh ak.GFU ARUKLgh lU ;lghu;lT"
+      }
+    ],
+    "links": [],
+    "files": []
+  },
+  {
+    "id": 4,
+    "title": "ugv",
+    "author": "hyu",
+    "sections": [
+      {
+        "type": "text",
+        "subtitle": "gcj",
+        "text": ""
+      }
+    ],
+    "links": [],
+    "files": []
+  }
+]

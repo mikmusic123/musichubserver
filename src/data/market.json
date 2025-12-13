@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "type": "free",
+    "title": "Free Drum Kit – VOL.1",
+    "imageUrl": "https://i.pinimg.com/736x/2e/01/05/2e0105564df0b77e4c456cb82ecba7f8.jpg",
+    "price": "Free",
+    "description": "Punchy 808s, snares, and percs.",
+    "category": "Sample Pack",
+    "linkUrl": "/downloads/vol1.zip"
+  },
+  {
+    "id": 2,
+    "type": "exclusive",
+    "title": "Exclusive Beat – Midnight Drive",
+    "imageUrl": "https://i.pinimg.com/736x/2e/01/05/2e0105564df0b77e4c456cb82ecba7f8.jpg",
+    "price": "€79.00",
+    "description": "Synthwave beat, stems included.",
+    "category": "Beat License",
+    "linkUrl": "https://your-checkout-link.com/item/2"
+  }
+]

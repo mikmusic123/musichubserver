@@ -1,0 +1,65 @@
+[
+  {
+    "id": 1,
+    "name": "mik",
+    "email": "mikzerafa@hotmail.com",
+    "passwordHash": "$2b$10$Ncg3yGMV6On0PImPpan9Qu9k.OlIqtCouastfbJiF4NZdge6RihQC",
+    "provider": "local"
+  },
+  {
+    "id": 2,
+    "name": "MikhIL",
+    "email": "mik@gmail.com",
+    "passwordHash": "$2b$10$iaJWDAWSo6ZkcFNOUFGzg.gN7po.VbyQgsgh0ic68zdPmsjAObuRy",
+    "provider": "local"
+  },
+  {
+    "id": 3,
+    "name": "test",
+    "email": "test@gmail.com",
+    "passwordHash": "$2b$10$1zLW6w.9bQeKPYYawoNKsOD1q14a..lwMp2IYV/yZxFKRh5GA96.K",
+    "provider": "local"
+  },
+  {
+    "id": 4,
+    "name": "mik",
+    "email": "mik-admin",
+    "passwordHash": "$2b$10$mFq7hYlCmowLRXX4Yyq/5.H6hbnfWd7nghuOE6Mcvg8oTRI2otfVG",
+    "provider": "local"
+  },
+  {
+    "id": 5,
+    "name": "testing",
+    "email": "testing@gmail.com",
+    "passwordHash": "$2b$10$LbQqZeqRxfHQcpZ7vSPaA.yNLQVQ.JJgPOvgzSb5sXIxkedW/2sde",
+    "provider": "local"
+  },
+  {
+    "id": 6,
+    "name": "m",
+    "email": "m@m",
+    "passwordHash": "$2b$10$XyC5Hnw2GdUMFEC2eHly2..KLKcko2T1o8JFIdf7klGNd4aC53MqG",
+    "provider": "local"
+  },
+  {
+    "id": 7,
+    "name": "carlos",
+    "email": "c@c",
+    "passwordHash": "$2b$10$M.fin0Uzyidle4y2VOrEcesKIyWV8LSsx2mRoUxVkSHLVzqZZV4KK",
+    "provider": "local"
+  },
+  {
+    "id": 8,
+    "name": "mikzerafa",
+    "email": "n@n",
+    "passwordHash": "$2b$10$855PPTv1XWPQkvVeHiC8/ObruKld9GFoNiY1DQkUv4FqEqJ2Qvqke",
+    "provider": "local"
+  },
+  {
+    "id": 9,
+    "name": "g",
+    "email": "g@g",
+    "passwordHash": "$2b$10$4EMdldrs6imW4nyjaGbC..QJmnGSLgtiUCwQdEXuz8Hzhg5qBuy4m",
+    "provider": "local"
+  }
+]

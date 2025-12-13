@@ -1,0 +1,26 @@
+{
+  "wallets": [
+    {
+      "userId": 9,
+      "points": 50,
+      "updatedAt": "2025-12-12T20:43:19.330Z",
+      "ledger": [
+        {
+          "id": "tx_5312901353c37789",
+          "clientEventId": "1d1c4cbf-bea6-4bf8-9472-90a01f0572f4",
+          "type": "earn",
+          "reason": "daily_login",
+          "amount": 50,
+          "createdAt": "2025-12-12T20:43:19.330Z",
+          "meta": {}
+        }
+      ]
+    },
+    {
+      "userId": 8,
+      "points": 0,
+      "updatedAt": "2025-12-12T21:25:43.391Z",
+      "ledger": []
+    }
+  ]
+}
