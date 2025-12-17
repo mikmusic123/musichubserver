@@ -206,11 +206,17 @@ function writeResources(resources: Resource[]) {
 
 const app = express();
 
-const corsOptions = {
+const corsOptions: cors.CorsOptions = {
   origin: ["https://musichub-phi.vercel.app", "http://localhost:5173"],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // ✅ handle preflight safely
+app.use(express.json());
+
+
 
 app.use(cors(corsOptions));
 // ✅ remove app.options(...) entirely
