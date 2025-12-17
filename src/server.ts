@@ -7,7 +7,6 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 import router from "./bank/bank.routes.js";
-import splitRouter from "./routes/split.js";
 
 
 
@@ -221,7 +220,11 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use(cors());
 
 app.use("/files", express.static(path.resolve("outputs")));
-app.use("/splitter", splitRouter);
+app.use(cors({
+  origin: ["https://musichub-phi.vercel.app", "http://localhost:5173"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
 app.use(express.json());
 app.use(router);

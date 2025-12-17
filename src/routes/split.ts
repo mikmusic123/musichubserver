@@ -1,162 +1,147 @@
-import express from "express";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { spawn } from "child_process";
+// src/api/splitterapi.ts
 
-const router = express.Router();
+export type SplitModel = "htdemucs" | "mdx_extra" | string;
 
-/* =========================
-   Directories
-========================= */
-const UPLOAD_DIR = path.resolve("uploads");
-const OUTPUT_DIR = path.resolve("outputs");
+export type SplitResult = {
+  vocalsUrl: string;
+  instrumentalUrl: string;
+};
 
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+export type SplitJobStatus = "queued" | "running" | "done" | "error";
 
-/* =========================
-   Multer
-========================= */
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".bin";
-    const safeBase = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    cb(null, safeBase + ext);
-  },
-});
-const upload = multer({ storage });
-
-/* =========================
-   Demucs command
-========================= */
-const demucsCmd =
-  process.platform === "win32"
-    ? path.resolve(".venv", "Scripts", "demucs.exe")
-    : "demucs";
-
-/* =========================
-   Job store (in-memory)
-========================= */
-type JobStatus = "queued" | "running" | "done" | "error";
-
-type SplitJob = {
+export type SplitJob = {
   id: string;
-  status: JobStatus;
+  status: SplitJobStatus;
   trackName: string;
-  inputPath: string;
+  inputPath?: string;
   createdAt: string;
   updatedAt: string;
   progress?: string;
   error?: string;
-  result?: {
-    vocalsUrl: string;
-    instrumentalUrl: string;
-  };
+  result?: SplitResult;
 };
 
-const jobs = new Map<string, SplitJob>();
+export type CreateSplitRequest = {
+  // You can keep these for later if you want;
+  // current server ignores them unless you implement parsing.
+  model?: SplitModel;
+  twoStems?: "vocals";
+  outputFormat?: "wav" | "mp3";
+};
 
-function now() {
-  return new Date().toISOString();
+export type CreateSplitResponse = {
+  jobId: string;
+  statusUrl: string; // relative URL from server
+};
+
+// -------- config --------
+
+const API_BASE = "https://musichubserver.onrender.com";
+// const API_BASE = "http://localhost:4000";
+
+function authHeaders(token?: string | null) {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
 }
 
-/* =========================
-   Background runner
-========================= */
-function runDemucsJob(job: SplitJob) {
-  job.status = "running";
-  job.updatedAt = now();
-  job.progress = "Starting demucs…";
+async function handleJson<T>(res: Response): Promise<T> {
+  const raw = await res.text(); // read once
 
-  const args = [
-    "-n",
-    "htdemucs",            // ⚠️ switch to "mdx_extra" if RAM is tight
-    "--two-stems=vocals",
-    "--shifts",
-    "0",
-    "--segment",
-    "5",
-    "-o",
-    OUTPUT_DIR,
-    job.inputPath,
-  ];
+  const tryJson = () => {
+    try {
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
 
-  const p = spawn(demucsCmd, args, {
-    stdio: ["ignore", "pipe", "pipe"],
-    env: {
-      ...process.env,
-      TORCHAUDIO_USE_SOUNDFILE_LEGACY: "1",
+  if (!res.ok) {
+    const json = tryJson();
+    const message =
+      (json && ((json as any).error || (json as any).message)) ||
+      raw ||
+      `Request failed with ${res.status}`;
+    throw new Error(message);
+  }
+
+  const json = tryJson();
+  if (json === null) throw new Error("Expected JSON response but got empty/non-JSON body.");
+  return json as T;
+}
+
+// -------- API FUNCTIONS --------
+
+/**
+ * POST /splitter/split
+ * multipart/form-data:
+ *  - file: audio file
+ *
+ * Server returns 202:
+ *  { jobId, statusUrl: "/splitter/status/<jobId>" }
+ */
+export async function createSplitJob(
+  file: File,
+  options: CreateSplitRequest = {},
+  token?: string | null
+): Promise<CreateSplitResponse> {
+  const form = new FormData();
+  form.append("file", file);
+
+  // Optional fields (only useful if your server reads them)
+  if (options.model) form.append("model", options.model);
+  if (options.twoStems) form.append("twoStems", options.twoStems);
+  if (options.outputFormat) form.append("outputFormat", options.outputFormat);
+
+  const res = await fetch(`${API_BASE}/splitter/split`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+      // do NOT set Content-Type for FormData
+    },
+    body: form,
+  });
+
+  return handleJson<CreateSplitResponse>(res);
+}
+
+/**
+ * GET /splitter/status/:jobId
+ */
+export async function fetchSplitJob(
+  jobId: string,
+  token?: string | null
+): Promise<SplitJob> {
+  const res = await fetch(`${API_BASE}/splitter/status/${jobId}`, {
+    headers: {
+      ...authHeaders(token),
+      "Content-Type": "application/json",
     },
   });
 
-  const onLine = (d: Buffer) => {
-    job.progress = d.toString().slice(0, 400);
-    job.updatedAt = now();
-  };
-
-  p.stdout.on("data", onLine);
-  p.stderr.on("data", onLine);
-
-  p.on("error", (err) => {
-    job.status = "error";
-    job.error = err.message;
-    job.updatedAt = now();
-  });
-
-  p.on("close", (code) => {
-    if (code === 0) {
-      const relBase = path.posix.join("htdemucs", job.trackName);
-      job.status = "done";
-      job.result = {
-        vocalsUrl: `/files/${relBase}/vocals.wav`,
-        instrumentalUrl: `/files/${relBase}/no_vocals.wav`,
-      };
-    } else {
-      job.status = "error";
-      job.error = `demucs exited ${code}`;
-    }
-    job.updatedAt = now();
-  });
+  return handleJson<SplitJob>(res);
 }
 
-/* =========================
-   POST /split  (enqueue)
-========================= */
-router.post("/split", upload.single("file"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+/**
+ * Convenience: poll until done/error
+ */
+export async function waitForSplitJobDone(
+  jobId: string,
+  token?: string | null,
+  {
+    intervalMs = 1500,
+    timeoutMs = 10 * 60 * 1000,
+  }: { intervalMs?: number; timeoutMs?: number } = {}
+): Promise<SplitJob> {
+  const start = Date.now();
 
-  const trackName = path.parse(req.file.path).name;
-  const jobId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  while (true) {
+    const job = await fetchSplitJob(jobId, token);
 
-  const job: SplitJob = {
-    id: jobId,
-    status: "queued",
-    trackName,
-    inputPath: req.file.path,
-    createdAt: now(),
-    updatedAt: now(),
-  };
+    if (job.status === "done" || job.status === "error") return job;
 
-  jobs.set(jobId, job);
+    if (Date.now() - start > timeoutMs) throw new Error("Split timed out");
 
-  // 🔥 run async (do NOT await)
-  runDemucsJob(job);
-
-  return res.status(202).json({
-    jobId,
-    statusUrl: `/splitter/status/${jobId}`,
-  });
-});
-
-/* =========================
-   GET /status/:jobId
-========================= */
-router.get("/status/:jobId", (req, res) => {
-  const job = jobs.get(req.params.jobId);
-  if (!job) return res.status(404).json({ error: "Job not found" });
-  res.json(job);
-});
-
-export default router;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
