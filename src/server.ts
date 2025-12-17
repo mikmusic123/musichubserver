@@ -201,14 +201,16 @@ function writeResources(resources: Resource[]) {
 
 
 const app = express();
-app.use(cors({
+
+const corsOptions = {
   origin: ["https://musichub-phi.vercel.app", "http://localhost:5173"],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-}));
+};
 
-// handle preflight
-app.options("*", cors());
+app.use(cors(corsOptions));
+// ✅ remove app.options(...) entirely
+
 
 
 // ✅ this creates POST /splitter/split

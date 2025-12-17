@@ -79,6 +79,13 @@ function writeResources(resources) {
     fs.writeFileSync(RESOURCES_PATH, JSON.stringify(resources, null, 2), "utf-8");
 }
 const app = express();
+const corsOptions = {
+    origin: ["https://musichub-phi.vercel.app", "http://localhost:5173"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+};
+app.use(cors(corsOptions));
+// ✅ remove app.options(...) entirely
 // ✅ this creates POST /splitter/split
 // ✅ prove correct server is running
 app.get("/health", (_req, res) => res.json({ ok: true }));
