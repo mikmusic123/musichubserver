@@ -27,7 +27,8 @@ router.post("/split", upload.single("file"), async (req, res) => {
         // folder demucs uses = basename of input file (no extension)
         const trackName = path.parse(inputPath).name;
         const stemDir = path.join(OUTPUT_DIR, "htdemucs", trackName);
-        const demucsExe = path.resolve(".venv", "Scripts", "demucs.exe");
+        // const demucsExe = path.resolve(".venv", "Scripts", "demucs.exe");
+        const demucsExe = path.resolve(".venv", "bin", "demucs");
         const args = [
             "-n", "htdemucs",
             "--two-stems=vocals",
