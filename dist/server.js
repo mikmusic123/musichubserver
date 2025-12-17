@@ -85,7 +85,8 @@ const corsOptions = {
     allowedHeaders: ["Content-Type", "Authorization"],
 };
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // ✅ handle preflight safely
+app.options(/.*/, cors(corsOptions));
+// ✅ handle preflight safely
 app.use(express.json());
 app.use(cors(corsOptions));
 // ✅ remove app.options(...) entirely

@@ -213,7 +213,8 @@ const corsOptions: cors.CorsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // ✅ handle preflight safely
+app.options(/.*/, cors(corsOptions));
+ // ✅ handle preflight safely
 app.use(express.json());
 
 
