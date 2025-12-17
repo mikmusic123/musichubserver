@@ -5,7 +5,6 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import router from "./bank/bank.routes.js";
-import splitRouter from "./routes/split.js";
 // ---- Resource JSON "db" ----
 const RESOURCES_PATH = path.resolve(process.cwd(), "src", "data", "resources.json");
 // ---- Users JSON "db" ----
@@ -90,9 +89,12 @@ app.use(cors(corsOptions));
 // ✅ prove correct server is running
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use(cors());
-app.use("/splitter", splitRouter);
-// allow client to download results
 app.use("/files", express.static(path.resolve("outputs")));
+app.use(cors({
+    origin: ["https://musichub-phi.vercel.app", "http://localhost:5173"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json());
 app.use(router);
 // Use an absolute path based on the project root
