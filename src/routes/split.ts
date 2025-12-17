@@ -45,7 +45,7 @@ const stemDir = path.join(OUTPUT_DIR, "htdemucs", trackName);
  
 
     // const demucsExe = path.resolve(".venv", "Scripts", "demucs.exe");
-     const demucsExe = path.resolve(".venv", "bin", "demucs");
+     const demucsExe = ".venv\\Scripts\\demucs.exe";
 
     const args = [
       "-n", "htdemucs",
