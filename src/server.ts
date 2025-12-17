@@ -7,6 +7,9 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 import router from "./bank/bank.routes.js";
+import splitRouter from "./routes/split.js";
+
+
 
 export type Show = {
   id: number;
@@ -93,6 +96,8 @@ const RESOURCES_PATH = path.resolve(
 
 const USERS_PATH = path.resolve(process.cwd(), "src", "data", "users.json");
 const MARKET_PATH = path.resolve(process.cwd(), "src", "data", "market.json");
+
+
 
 if (!fs.existsSync(MARKET_PATH)) {
   fs.mkdirSync(path.dirname(MARKET_PATH), { recursive: true });
@@ -196,7 +201,23 @@ function writeResources(resources: Resource[]) {
 
 
 const app = express();
+
+
+
+// ✅ this creates POST /splitter/split
+
+// ✅ prove correct server is running
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
 app.use(cors());
+
+app.use("/splitter", splitRouter);
+
+// allow client to download results
+
+app.use("/files", express.static(path.resolve("outputs")));
+
+
 app.use(express.json());
 app.use(router);
 

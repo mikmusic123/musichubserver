@@ -5,6 +5,7 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import router from "./bank/bank.routes.js";
+import splitRouter from "./routes/split.js";
 // ---- Resource JSON "db" ----
 const RESOURCES_PATH = path.resolve(process.cwd(), "src", "data", "resources.json");
 // ---- Users JSON "db" ----
@@ -70,14 +71,21 @@ if (!fs.existsSync(RESOURCES_PATH)) {
 // helper to read resources
 function readResources() {
     const raw = fs.readFileSync(RESOURCES_PATH, "utf-8");
-    return JSON.parse(raw);
+    const parsedResources = JSON.parse(raw);
+    return parsedResources.filter(resource => !resource.isDeleted);
 }
 // helper to write resources
 function writeResources(resources) {
     fs.writeFileSync(RESOURCES_PATH, JSON.stringify(resources, null, 2), "utf-8");
 }
 const app = express();
+// ✅ this creates POST /splitter/split
+// ✅ prove correct server is running
+app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use(cors());
+app.use("/splitter", splitRouter);
+// allow client to download results
+app.use("/files", express.static(path.resolve("outputs")));
 app.use(express.json());
 app.use(router);
 // Use an absolute path based on the project root
@@ -425,6 +433,7 @@ app.post("/resources", (req, res) => {
             id: resources.length
                 ? Math.max(...resources.map((r) => r.id)) + 1
                 : 1,
+            isDeleted: false,
             title: req.body.title,
             author: req.body.author,
             sections: req.body.sections ?? [],
@@ -480,7 +489,8 @@ app.delete("/resources/:id", (req, res) => {
         if (filtered.length === initialLength) {
             return res.status(404).json({ error: "Resource not found" });
         }
-        writeResources(filtered);
+        resources.filter((r) => r.id === id).forEach(r => r.isDeleted = true);
+        writeResources(resources);
         res.status(204).send();
     }
     catch (err) {

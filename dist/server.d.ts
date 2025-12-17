@@ -24,6 +24,7 @@ export type ResourceFile = {
 };
 export type Resource = {
     id: number;
+    isDeleted?: boolean;
     title: string;
     author: string;
     sections: Section[];
