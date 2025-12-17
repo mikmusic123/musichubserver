@@ -85,4 +85,6 @@ export async function waitForSplitJobDone(jobId, token, { intervalMs = 1500, tim
         await new Promise((r) => setTimeout(r, intervalMs));
     }
 }
+// ...routes...
+export default fetchSplitJob;
 //# sourceMappingURL=split.js.map

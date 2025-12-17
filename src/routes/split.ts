@@ -145,3 +145,10 @@ export async function waitForSplitJobDone(
     await new Promise((r) => setTimeout(r, intervalMs));
   }
 }
+
+
+
+// ...routes...
+
+export default fetchSplitJob;
+

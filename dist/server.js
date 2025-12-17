@@ -5,6 +5,7 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import router from "./bank/bank.routes.js";
+import splitRouter from "./routes/split.js";
 // ---- Resource JSON "db" ----
 const RESOURCES_PATH = path.resolve(process.cwd(), "src", "data", "resources.json");
 // ---- Users JSON "db" ----
@@ -85,6 +86,9 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 // ✅ remove app.options(...) entirely
+// or named import if you used named export
+app.use("/files", express.static(path.resolve("outputs")));
+app.use("/splitter", splitRouter);
 // ✅ this creates POST /splitter/split
 // ✅ prove correct server is running
 app.get("/health", (_req, res) => res.json({ ok: true }));

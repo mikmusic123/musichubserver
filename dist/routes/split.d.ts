@@ -44,4 +44,5 @@ export declare function waitForSplitJobDone(jobId: string, token?: string | null
     intervalMs?: number;
     timeoutMs?: number;
 }): Promise<SplitJob>;
+export default fetchSplitJob;
 //# sourceMappingURL=split.d.ts.map

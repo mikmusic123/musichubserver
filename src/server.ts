@@ -7,6 +7,10 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 import router from "./bank/bank.routes.js";
+import splitRouter from "./routes/split.js";
+
+
+
 
 
 
@@ -209,7 +213,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 // ✅ remove app.options(...) entirely
-
+ // or named import if you used named export
+app.use("/files", express.static(path.resolve("outputs")));
+app.use("/splitter", splitRouter);
 
 
 // ✅ this creates POST /splitter/split
