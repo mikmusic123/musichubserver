@@ -220,12 +220,8 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.use(cors());
 
-app.use("/splitter", splitRouter);
-
-// allow client to download results
-
 app.use("/files", express.static(path.resolve("outputs")));
-
+app.use("/splitter", splitRouter);
 
 app.use(express.json());
 app.use(router);
