@@ -25,7 +25,7 @@ export type CreateSplitResponse = {
 };
 export declare function createSplitJob(file: File, options?: CreateSplitRequest, token?: string | null): Promise<CreateSplitResponse>;
 export declare function fetchSplitJob(jobId: string, token?: string | null): Promise<SplitJob>;
-export declare function waitForSplitJobDone(jobId: string, token?: string | null, { intervalMs, timeoutMs }?: {
+export declare function waitForSplitJobDone(jobId: string, token?: string | null, { intervalMs, timeoutMs, }?: {
     intervalMs?: number;
     timeoutMs?: number;
 }): Promise<SplitJob>;
