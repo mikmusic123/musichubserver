@@ -8,6 +8,10 @@
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
+    
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": false,
+    "verbatimModuleSyntax": true,
     "target": "ES2022",
     "types": [],
     // For nodejs:
@@ -42,5 +46,4 @@
     "skipLibCheck": true,
     "outDir": "dist"
 
-  }
-}
+  }}

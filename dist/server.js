@@ -5,7 +5,7 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import router from "./bank/bank.routes.js";
-import splitRouter from "./routes/split.js";
+import splitRouter from "./routes/split.routes.js";
 // ---- Resource JSON "db" ----
 const RESOURCES_PATH = path.resolve(process.cwd(), "src", "data", "resources.json");
 // ---- Users JSON "db" ----
