@@ -85,10 +85,11 @@ const corsOptions = {
     allowedHeaders: ["Content-Type", "Authorization"],
 };
 app.use(cors(corsOptions));
+// ✅ IMPORTANT: Express 5 + path-to-regexp v8 does NOT like "*" here.
+// Use regex instead:
 app.options(/.*/, cors(corsOptions));
 // ✅ handle preflight safely
 app.use(express.json());
-app.use(cors(corsOptions));
 // ✅ remove app.options(...) entirely
 // or named import if you used named export
 app.use("/files", express.static(path.resolve("outputs")));
@@ -96,14 +97,6 @@ app.use("/splitter", splitRouter);
 // ✅ this creates POST /splitter/split
 // ✅ prove correct server is running
 app.get("/health", (_req, res) => res.json({ ok: true }));
-app.use(cors());
-app.use("/files", express.static(path.resolve("outputs")));
-app.use(cors({
-    origin: ["https://musichub-phi.vercel.app", "http://localhost:5173"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-}));
-app.use(express.json());
 app.use(router);
 // Use an absolute path based on the project root
 // This works both with ts-node (src) and compiled JS (dist) as long as you run from project root
