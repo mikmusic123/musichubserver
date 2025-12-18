@@ -5,15 +5,64 @@ import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
 
-
 const router = express.Router();
 
 const UPLOAD_DIR = path.resolve("uploads");
 const OUTPUT_DIR = path.resolve("outputs");
-
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
+// -------- types --------
+type JobStatus = "queued" | "running" | "done" | "error";
+type Job = {
+  id: string;
+  status: JobStatus;
+  trackName: string;
+  inputPath: string;
+  createdAt: string;
+  updatedAt: string;
+  progress?: string;
+  error?: string;
+  result?: { vocalsUrl: string; instrumentalUrl: string };
+};
+
+const now = () => new Date().toISOString();
+
+// -------- job persistence (per job file) --------
+const JOBS_DIR = path.resolve(process.cwd(), "tmp_jobs");
+fs.mkdirSync(JOBS_DIR, { recursive: true });
+
+function jobPath(id: string) {
+  return path.join(JOBS_DIR, `${id}.json`);
+}
+
+function saveJob(job: Job) {
+  fs.writeFileSync(jobPath(job.id), JSON.stringify(job, null, 2), "utf-8");
+}
+
+function loadJob(id: string): Job | null {
+  const p = jobPath(id);
+  if (!fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, "utf-8")) as Job;
+  } catch {
+    return null;
+  }
+}
+
+// optional in-memory cache (fast path)
+const jobs = new Map<string, Job>();
+
+function getJob(id: string): Job | null {
+  return jobs.get(id) || loadJob(id);
+}
+
+function setJob(job: Job) {
+  jobs.set(job.id, job);
+  saveJob(job);
+}
+
+// -------- upload --------
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
@@ -29,77 +78,41 @@ const demucsCmd =
     ? path.resolve(".venv", "Scripts", "demucs.exe")
     : "demucs";
 
-// -------- in-memory jobs --------
-type JobStatus = "queued" | "running" | "done" | "error";
-type Job = {
-  id: string;
-  status: JobStatus;
-  trackName: string;
-  inputPath: string;
-  createdAt: string;
-  updatedAt: string;
-  progress?: string;
-  error?: string;
-  result?: { vocalsUrl: string; instrumentalUrl: string };
-};
+const MODEL = "mdx_extra";
 
-const JOBS_PATH = path.resolve("jobs.json");
-
-function loadJobs(): Record<string, Job> {
-  try {
-    if (!fs.existsSync(JOBS_PATH)) return {};
-    return JSON.parse(fs.readFileSync(JOBS_PATH, "utf-8") || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function saveJobs(all: Record<string, Job>) {
-  fs.writeFileSync(JOBS_PATH, JSON.stringify(all, null, 2), "utf-8");
-}
-
-function getJob(id: string): Job | undefined {
-  const all = loadJobs();
-  return all[id];
-}
-
-function setJob(job: Job) {
-  const all = loadJobs();
-  all[job.id] = job;
-  saveJobs(all);
-}
-
-const MODEL = "mdx_extra"; // ✅ change to "htdemucs" if you have RAM
-
-const now = () => new Date().toISOString();
-
+// -------- worker --------
 function runJob(job: Job) {
   job.status = "running";
   job.updatedAt = now();
   job.progress = "Starting demucs…";
-    setJob(job);
+  setJob(job);
 
   const args = [
     "-n", MODEL,
     "--two-stems=vocals",
     "--shifts", "0",
-    "--segment", "5",
+    "--segment", "2",
+    "--overlap", "0.1",
     "-o", OUTPUT_DIR,
     job.inputPath,
   ];
 
   const p = spawn(demucsCmd, args, {
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, TORCHAUDIO_USE_SOUNDFILE_LEGACY: "1" },
+    env: {
+      ...process.env,
+      OMP_NUM_THREADS: "1",
+      MKL_NUM_THREADS: "1",
+      TORCH_NUM_THREADS: "1",
+    },
   });
 
-const onLine = (d: Buffer) => {
-  const txt = d.toString();
-  job.progress = txt.slice(Math.max(0, txt.length - 200)); // last 200 chars
-  job.updatedAt = now();
-  setJob(job);
-};
-
+  const onLine = (d: Buffer) => {
+    const txt = d.toString();
+    job.progress = txt.slice(Math.max(0, txt.length - 200));
+    job.updatedAt = now();
+    setJob(job);
+  };
 
   p.stdout.on("data", onLine);
   p.stderr.on("data", onLine);
@@ -108,7 +121,7 @@ const onLine = (d: Buffer) => {
     job.status = "error";
     job.error = err.message;
     job.updatedAt = now();
-      setJob(job);
+    setJob(job);
   });
 
   p.on("close", (code) => {
@@ -124,7 +137,7 @@ const onLine = (d: Buffer) => {
       job.error = `demucs exited ${code}`;
     }
     job.updatedAt = now();
-      setJob(job);
+    setJob(job);
   });
 }
 
@@ -144,8 +157,9 @@ router.post("/split", upload.single("file"), (req, res) => {
     updatedAt: now(),
   };
 
-  setJob(job);
-  runJob(job);
+  setJob(job);   // persist immediately
+  runJob(job);   // background
+
   res.status(202).json({
     jobId,
     statusUrl: `/splitter/status/${jobId}`,

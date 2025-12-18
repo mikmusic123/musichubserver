@@ -9,6 +9,37 @@ const UPLOAD_DIR = path.resolve("uploads");
 const OUTPUT_DIR = path.resolve("outputs");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+const now = () => new Date().toISOString();
+// -------- job persistence (per job file) --------
+const JOBS_DIR = path.resolve(process.cwd(), "tmp_jobs");
+fs.mkdirSync(JOBS_DIR, { recursive: true });
+function jobPath(id) {
+    return path.join(JOBS_DIR, `${id}.json`);
+}
+function saveJob(job) {
+    fs.writeFileSync(jobPath(job.id), JSON.stringify(job, null, 2), "utf-8");
+}
+function loadJob(id) {
+    const p = jobPath(id);
+    if (!fs.existsSync(p))
+        return null;
+    try {
+        return JSON.parse(fs.readFileSync(p, "utf-8"));
+    }
+    catch {
+        return null;
+    }
+}
+// optional in-memory cache (fast path)
+const jobs = new Map();
+function getJob(id) {
+    return jobs.get(id) || loadJob(id);
+}
+function setJob(job) {
+    jobs.set(job.id, job);
+    saveJob(job);
+}
+// -------- upload --------
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
     filename: (_req, file, cb) => {
@@ -21,31 +52,8 @@ const upload = multer({ storage });
 const demucsCmd = process.platform === "win32"
     ? path.resolve(".venv", "Scripts", "demucs.exe")
     : "demucs";
-const JOBS_PATH = path.resolve("jobs.json");
-function loadJobs() {
-    try {
-        if (!fs.existsSync(JOBS_PATH))
-            return {};
-        return JSON.parse(fs.readFileSync(JOBS_PATH, "utf-8") || "{}");
-    }
-    catch {
-        return {};
-    }
-}
-function saveJobs(all) {
-    fs.writeFileSync(JOBS_PATH, JSON.stringify(all, null, 2), "utf-8");
-}
-function getJob(id) {
-    const all = loadJobs();
-    return all[id];
-}
-function setJob(job) {
-    const all = loadJobs();
-    all[job.id] = job;
-    saveJobs(all);
-}
-const MODEL = "mdx_extra"; // ✅ change to "htdemucs" if you have RAM
-const now = () => new Date().toISOString();
+const MODEL = "mdx_extra";
+// -------- worker --------
 function runJob(job) {
     job.status = "running";
     job.updatedAt = now();
@@ -55,17 +63,23 @@ function runJob(job) {
         "-n", MODEL,
         "--two-stems=vocals",
         "--shifts", "0",
-        "--segment", "5",
+        "--segment", "2",
+        "--overlap", "0.1",
         "-o", OUTPUT_DIR,
         job.inputPath,
     ];
     const p = spawn(demucsCmd, args, {
         stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env, TORCHAUDIO_USE_SOUNDFILE_LEGACY: "1" },
+        env: {
+            ...process.env,
+            OMP_NUM_THREADS: "1",
+            MKL_NUM_THREADS: "1",
+            TORCH_NUM_THREADS: "1",
+        },
     });
     const onLine = (d) => {
         const txt = d.toString();
-        job.progress = txt.slice(Math.max(0, txt.length - 200)); // last 200 chars
+        job.progress = txt.slice(Math.max(0, txt.length - 200));
         job.updatedAt = now();
         setJob(job);
     };
@@ -108,8 +122,8 @@ router.post("/split", upload.single("file"), (req, res) => {
         createdAt: now(),
         updatedAt: now(),
     };
-    setJob(job);
-    runJob(job);
+    setJob(job); // persist immediately
+    runJob(job); // background
     res.status(202).json({
         jobId,
         statusUrl: `/splitter/status/${jobId}`,
