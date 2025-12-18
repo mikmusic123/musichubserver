@@ -119,8 +119,7 @@ router.get("/status/:jobId", (req, res) => {
     const job = getJob(req.params.jobId);
     if (!job)
         return res.status(404).json({ error: "Job not found" });
-    res.json(job);
-    setJob(job);
+    return res.json(job);
 });
 export default router;
 //# sourceMappingURL=split.routes.js.map
