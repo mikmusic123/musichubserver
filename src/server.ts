@@ -9,6 +9,13 @@ import jwt from "jsonwebtoken";
 import router from "./bank/bank.routes.js";
 import splitRouter from "./routes/split.routes.js";
 
+const CACHE_ROOT = path.resolve(".cache");
+const TORCH_CACHE = path.join(CACHE_ROOT, "torch");
+const HF_CACHE = path.join(CACHE_ROOT, "huggingface");
+
+fs.mkdirSync(TORCH_CACHE, { recursive: true });
+fs.mkdirSync(HF_CACHE, { recursive: true });
+
 
 
 
