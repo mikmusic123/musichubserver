@@ -127,13 +127,17 @@ export async function fetchSplitJob(
   jobId: string,
   token?: string | null
 ): Promise<SplitJob> {
-  return safeFetchJson<SplitJob>(
-    `${API_BASE}/splitter/status/${jobId}`,
-    {
-      headers: { ...authHeaders(token) },
-    }
-  );
+  if (!jobId) {
+    throw new Error("SUPPLY VALUES FOR URI: jobId is missing");
+  }
+
+  const res = await fetch(`${API_BASE}/splitter/status/${jobId}`, {
+    headers: { ...authHeaders(token) },
+  });
+
+  return handleJson<SplitJob>(res);
 }
+
 
 // Poll helper
 export async function waitForSplitJobDone(

@@ -71,9 +71,13 @@ export async function createSplitJob(file, options = {}, token) {
 }
 // GET /splitter/status/:jobId
 export async function fetchSplitJob(jobId, token) {
-    return safeFetchJson(`${API_BASE}/splitter/status/${jobId}`, {
+    if (!jobId) {
+        throw new Error("SUPPLY VALUES FOR URI: jobId is missing");
+    }
+    const res = await fetch(`${API_BASE}/splitter/status/${jobId}`, {
         headers: { ...authHeaders(token) },
     });
+    return handleJson(res);
 }
 // Poll helper
 export async function waitForSplitJobDone(jobId, token, { intervalMs = 1500, timeoutMs = 10 * 60 * 1000, } = {}) {
