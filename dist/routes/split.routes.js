@@ -64,7 +64,8 @@ function runJob(job) {
         env: { ...process.env, TORCHAUDIO_USE_SOUNDFILE_LEGACY: "1" },
     });
     const onLine = (d) => {
-        job.progress = d.toString().slice(0, 400);
+        const txt = d.toString();
+        job.progress = txt.slice(Math.max(0, txt.length - 200)); // last 200 chars
         job.updatedAt = now();
         setJob(job);
     };
