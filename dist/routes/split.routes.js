@@ -10,8 +10,8 @@ const OUTPUT_DIR = path.resolve("outputs");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 const now = () => new Date().toISOString();
-// -------- job persistence (per job file) --------
-const JOBS_DIR = path.resolve(process.cwd(), "tmp_jobs");
+// ✅ Render-safe writable folder (Linux)
+const JOBS_DIR = process.env.JOBS_DIR || "/tmp/musichub_jobs";
 fs.mkdirSync(JOBS_DIR, { recursive: true });
 function jobPath(id) {
     return path.join(JOBS_DIR, `${id}.json`);
@@ -52,6 +52,7 @@ const upload = multer({ storage });
 const demucsCmd = process.platform === "win32"
     ? path.resolve(".venv", "Scripts", "demucs.exe")
     : "demucs";
+// ✅ safest model for Render RAM
 const MODEL = "mdx_extra";
 // -------- worker --------
 function runJob(job) {
@@ -60,12 +61,17 @@ function runJob(job) {
     job.progress = "Starting demucs…";
     setJob(job);
     const args = [
-        "-n", MODEL,
+        "-n",
+        MODEL,
         "--two-stems=vocals",
-        "--shifts", "0",
-        "--segment", "2",
-        "--overlap", "0.1",
-        "-o", OUTPUT_DIR,
+        "--shifts",
+        "0",
+        "--segment",
+        "2",
+        "--overlap",
+        "0.1",
+        "-o",
+        OUTPUT_DIR,
         job.inputPath,
     ];
     const p = spawn(demucsCmd, args, {
@@ -122,8 +128,8 @@ router.post("/split", upload.single("file"), (req, res) => {
         createdAt: now(),
         updatedAt: now(),
     };
-    setJob(job); // persist immediately
-    runJob(job); // background
+    setJob(job); // ✅ persist immediately
+    runJob(job); // ✅ run async
     res.status(202).json({
         jobId,
         statusUrl: `/splitter/status/${jobId}`,

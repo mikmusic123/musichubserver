@@ -9,6 +9,7 @@ const router = express.Router();
 
 const UPLOAD_DIR = path.resolve("uploads");
 const OUTPUT_DIR = path.resolve("outputs");
+
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
@@ -28,8 +29,8 @@ type Job = {
 
 const now = () => new Date().toISOString();
 
-// -------- job persistence (per job file) --------
-const JOBS_DIR = path.resolve(process.cwd(), "tmp_jobs");
+// ✅ Render-safe writable folder (Linux)
+const JOBS_DIR = process.env.JOBS_DIR || "/tmp/musichub_jobs";
 fs.mkdirSync(JOBS_DIR, { recursive: true });
 
 function jobPath(id: string) {
@@ -78,6 +79,7 @@ const demucsCmd =
     ? path.resolve(".venv", "Scripts", "demucs.exe")
     : "demucs";
 
+// ✅ safest model for Render RAM
 const MODEL = "mdx_extra";
 
 // -------- worker --------
@@ -88,12 +90,17 @@ function runJob(job: Job) {
   setJob(job);
 
   const args = [
-    "-n", MODEL,
+    "-n",
+    MODEL,
     "--two-stems=vocals",
-    "--shifts", "0",
-    "--segment", "2",
-    "--overlap", "0.1",
-    "-o", OUTPUT_DIR,
+    "--shifts",
+    "0",
+    "--segment",
+    "2",
+    "--overlap",
+    "0.1",
+    "-o",
+    OUTPUT_DIR,
     job.inputPath,
   ];
 
@@ -157,8 +164,8 @@ router.post("/split", upload.single("file"), (req, res) => {
     updatedAt: now(),
   };
 
-  setJob(job);   // persist immediately
-  runJob(job);   // background
+  setJob(job); // ✅ persist immediately
+  runJob(job); // ✅ run async
 
   res.status(202).json({
     jobId,

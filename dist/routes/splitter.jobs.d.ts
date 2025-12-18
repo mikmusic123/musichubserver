@@ -13,7 +13,7 @@ export type SplitJob = {
         instrumentalUrl: string;
     };
 };
-export declare function getJob(id: string): SplitJob | undefined;
+export declare function getJob(id: string): SplitJob | null;
 export declare function createJob(params: {
     inputPath: string;
 }): SplitJob;

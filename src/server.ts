@@ -224,6 +224,7 @@ app.use(cors(corsOptions));
 // Use regex instead:
 app.options(/.*/, cors(corsOptions));
 
+
  // ✅ handle preflight safely
 app.use(express.json());
 

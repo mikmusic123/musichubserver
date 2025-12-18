@@ -1,3 +1,4 @@
+import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
 
@@ -18,14 +19,30 @@ export type SplitJob = {
   };
 };
 
-const jobs = new Map<string, SplitJob>();
-
 function now() {
   return new Date().toISOString();
 }
 
-export function getJob(id: string) {
-  return jobs.get(id);
+// ✅ Render-safe writable folder (Linux)
+const JOBS_DIR = process.env.JOBS_DIR || "/tmp/musichub_jobs";
+fs.mkdirSync(JOBS_DIR, { recursive: true });
+
+function jobFile(id: string) {
+  return path.join(JOBS_DIR, `${id}.json`);
+}
+
+function saveJob(job: SplitJob) {
+  fs.writeFileSync(jobFile(job.id), JSON.stringify(job, null, 2), "utf-8");
+}
+
+export function getJob(id: string): SplitJob | null {
+  const p = jobFile(id);
+  if (!fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, "utf-8")) as SplitJob;
+  } catch {
+    return null;
+  }
 }
 
 export function createJob(params: { inputPath: string }) {
@@ -41,7 +58,7 @@ export function createJob(params: { inputPath: string }) {
     trackName,
   };
 
-  jobs.set(id, job);
+  saveJob(job);
   return job;
 }
 
@@ -51,24 +68,23 @@ const demucsCmd =
     : "demucs";
 
 export function runJobInBackground(jobId: string, outputDir: string) {
-  const job = jobs.get(jobId);
+  const job = getJob(jobId);
   if (!job) return;
 
   job.status = "running";
   job.updatedAt = now();
   job.progress = "Starting demucs…";
+  saveJob(job);
+
+  // ✅ mdx_extra is much safer on Render memory than htdemucs
+  const MODEL = "mdx_extra";
 
   const args = [
-    // ⚠️ htdemucs is heavy; keep it if you have RAM, otherwise use mdx_extra.
-    "-n",
-    "htdemucs",
+    "-n", MODEL,
     "--two-stems=vocals",
-    "--shifts",
-    "0",
-    "--segment",
-    "5",
-    "-o",
-    outputDir,
+    "--shifts", "0",
+    "--segment", "5",
+    "-o", outputDir,
     job.inputPath,
   ];
 
@@ -77,23 +93,26 @@ export function runJobInBackground(jobId: string, outputDir: string) {
     env: { ...process.env },
   });
 
-  const onLine = (line: string) => {
-    job.progress = line.slice(0, 400);
+  const onLine = (buf: Buffer) => {
+    const txt = buf.toString();
+    job.progress = txt.slice(-250); // last 250 chars (more useful)
     job.updatedAt = now();
+    saveJob(job);
   };
 
-  p.stdout.on("data", (d) => onLine(String(d)));
-  p.stderr.on("data", (d) => onLine(String(d)));
+  p.stdout.on("data", onLine);
+  p.stderr.on("data", onLine);
 
   p.on("error", (err) => {
     job.status = "error";
     job.error = err.message;
     job.updatedAt = now();
+    saveJob(job);
   });
 
   p.on("close", (code) => {
     if (code === 0) {
-      const relBase = path.posix.join("htdemucs", job.trackName);
+      const relBase = path.posix.join(MODEL, job.trackName);
       job.status = "done";
       job.result = {
         vocalsUrl: `/files/${relBase}/vocals.wav`,
@@ -104,5 +123,6 @@ export function runJobInBackground(jobId: string, outputDir: string) {
       job.error = `demucs exited ${code}`;
     }
     job.updatedAt = now();
+    saveJob(job);
   });
 }
