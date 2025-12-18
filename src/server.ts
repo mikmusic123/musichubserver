@@ -6,8 +6,8 @@ import type { Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-import router from "./bank/bank.routes.js";
-import splitRouter from "./routes/split.routes.js";
+import bankRouter from "./bank/bank.routes.js";
+import router from "./routes/split.routes.js";
 
 const CACHE_ROOT = path.resolve(".cache");
 const TORCH_CACHE = path.join(CACHE_ROOT, "torch");
@@ -232,11 +232,11 @@ app.use(express.json());
 // 3️⃣ Static files
 app.use("/files", express.static(path.resolve("outputs")));
 
-// 4️⃣ Feature routers
-app.use("/splitter", splitRouter);
+// 4️⃣ Feature bankRouters
+app.use("/splitter", router);
 
 // 5️⃣ Rest of API
-app.use(router);
+app.use(bankRouter);
 
 
 // ✅ this creates POST /splitter/split

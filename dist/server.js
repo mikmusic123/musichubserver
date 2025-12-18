@@ -4,8 +4,8 @@ import fs from "fs";
 import path from "path";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import router from "./bank/bank.routes.js";
-import splitRouter from "./routes/split.routes.js";
+import bankRouter from "./bank/bank.routes.js";
+import router from "./routes/split.routes.js";
 const CACHE_ROOT = path.resolve(".cache");
 const TORCH_CACHE = path.join(CACHE_ROOT, "torch");
 const HF_CACHE = path.join(CACHE_ROOT, "huggingface");
@@ -99,10 +99,10 @@ app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 // 3️⃣ Static files
 app.use("/files", express.static(path.resolve("outputs")));
-// 4️⃣ Feature routers
-app.use("/splitter", splitRouter);
+// 4️⃣ Feature bankRouters
+app.use("/splitter", router);
 // 5️⃣ Rest of API
-app.use(router);
+app.use(bankRouter);
 // ✅ this creates POST /splitter/split
 // ✅ prove correct server is running
 app.get("/health", (_req, res) => res.json({ ok: true }));
