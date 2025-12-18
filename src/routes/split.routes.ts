@@ -37,6 +37,13 @@ async function readBodySafe(res: Response) {
   }
 }
 
+
+
+
+
+
+
+
 async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: string }> {
   if (!file?.buffer) throw new Error("No file.buffer");
 
@@ -50,12 +57,9 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
   // field name MUST match worker: upload.single("file")
   form.append("file", blob as any, file.originalname || "upload.bin");
 
-  const res = await fetch(`${WORKER_URL}/split`, {
+  const res = await fetch(`${WORKER_URL}/v1/split`, {
     method: "POST",
-    headers: {
-      "x-worker-secret": WORKER_SECRET!,
-      // ❌ do NOT set Content-Type
-    },
+    headers: { "x-worker-secret": WORKER_SECRET! },
     body: form as any,
   });
 
@@ -70,10 +74,8 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
 }
 
 async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
-  const res = await fetch(`${WORKER_URL}/status/${encodeURIComponent(jobId)}`, {
-    headers: {
-      "x-worker-secret": WORKER_SECRET!,
-    },
+  const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
+    headers: { "x-worker-secret": WORKER_SECRET! },
   });
 
   if (!res.ok) {
