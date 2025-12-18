@@ -5,6 +5,14 @@ import { loadJob, saveJob, now, type Job } from "../split/jobStore.js";
 
 const router = express.Router();
 
+type WorkerJob = {
+  id: string;
+  status: string;
+  progress?: string;
+  error?: string;
+  result?: any;
+};
+
 // ---------- upload ----------
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -29,34 +37,25 @@ async function readBodySafe(res: Response) {
   }
 }
 
-function workerHeaders() {
-  return {
-    "x-worker-secret": WORKER_SECRET!,
-    Authorization: `Bearer ${WORKER_SECRET!}`,
-  };
-}
+async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: string }> {
+  if (!file?.buffer) throw new Error("No file.buffer");
 
-async function createWorkerJob(file: Express.Multer.File) {
-  if (!file?.buffer) {
-    throw new Error("No file.buffer found");
-  }
-
-  // ✅ convert Buffer → Uint8Array (TS-safe BlobPart)
   const bytes = new Uint8Array(file.buffer);
 
-  // ✅ global FormData / Blob (Node 18+)
   const form = new FormData();
   const blob = new Blob([bytes], {
     type: file.mimetype || "application/octet-stream",
   });
 
-  // ✅ field name MUST match worker: upload.single("file")
+  // field name MUST match worker: upload.single("file")
   form.append("file", blob as any, file.originalname || "upload.bin");
 
-  const res = await fetch(`${WORKER_URL}/v1/split`, {
+  const res = await fetch(`${WORKER_URL}/split`, {
     method: "POST",
-    headers: workerHeaders(),
-    // ❌ DO NOT set Content-Type
+    headers: {
+      "x-worker-secret": WORKER_SECRET!,
+      // ❌ do NOT set Content-Type
+    },
     body: form as any,
   });
 
@@ -67,13 +66,14 @@ async function createWorkerJob(file: Express.Multer.File) {
 
   const data = (await res.json()) as { jobId?: string };
   if (!data.jobId) throw new Error("Worker response missing jobId");
-
   return { jobId: data.jobId };
 }
 
-async function fetchWorkerJob(jobId: string) {
-  const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
-    headers: workerHeaders(),
+async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
+  const res = await fetch(`${WORKER_URL}/status/${encodeURIComponent(jobId)}`, {
+    headers: {
+      "x-worker-secret": WORKER_SECRET!,
+    },
   });
 
   if (!res.ok) {
@@ -81,17 +81,43 @@ async function fetchWorkerJob(jobId: string) {
     throw new Error(`Worker status failed (${res.status}): ${body}`);
   }
 
-  return res.json();
+  return (await res.json()) as WorkerJob;
 }
+
+
+
+function mapWorkerStatus(status: string): Job["status"] {
+  switch (status) {
+    case "queued":
+    case "pending":
+      return "queued";
+
+    case "running":
+    case "processing":
+      return "running";
+
+    case "done":
+    case "completed":
+    case "success":
+      return "done";
+
+    case "error":
+    case "failed":
+      return "error";
+
+    default:
+      // fail safe: never store unknown states
+      return "error";
+  }
+}
+
 
 // ---------- routes ----------
 
 // POST /splitter/split
 router.post("/split", upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     const { jobId } = await createWorkerJob(req.file);
 
@@ -126,9 +152,16 @@ router.get("/status/:jobId", async (req, res) => {
 
     const workerJob = await fetchWorkerJob(jobId);
 
-    local.status = workerJob.status;
-    local.progress = workerJob.progress;
-    local.error = workerJob.error;
+local.status = mapWorkerStatus(workerJob.status);
+
+if (typeof workerJob.progress === "number") {
+  local.progress = workerJob.progress;
+}
+
+if (typeof workerJob.error === "string") {
+  local.error = workerJob.error;
+}
+
     local.result = workerJob.result;
     local.updatedAt = now();
 

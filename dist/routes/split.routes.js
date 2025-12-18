@@ -24,29 +24,22 @@ async function readBodySafe(res) {
         return text;
     }
 }
-function workerHeaders() {
-    return {
-        "x-worker-secret": WORKER_SECRET,
-        Authorization: `Bearer ${WORKER_SECRET}`,
-    };
-}
 async function createWorkerJob(file) {
-    if (!file?.buffer) {
-        throw new Error("No file.buffer found");
-    }
-    // ✅ convert Buffer → Uint8Array (TS-safe BlobPart)
+    if (!file?.buffer)
+        throw new Error("No file.buffer");
     const bytes = new Uint8Array(file.buffer);
-    // ✅ global FormData / Blob (Node 18+)
     const form = new FormData();
     const blob = new Blob([bytes], {
         type: file.mimetype || "application/octet-stream",
     });
-    // ✅ field name MUST match worker: upload.single("file")
+    // field name MUST match worker: upload.single("file")
     form.append("file", blob, file.originalname || "upload.bin");
-    const res = await fetch(`${WORKER_URL}/v1/split`, {
+    const res = await fetch(`${WORKER_URL}/split`, {
         method: "POST",
-        headers: workerHeaders(),
-        // ❌ DO NOT set Content-Type
+        headers: {
+            "x-worker-secret": WORKER_SECRET,
+            // ❌ do NOT set Content-Type
+        },
         body: form,
     });
     if (!res.ok) {
@@ -59,22 +52,43 @@ async function createWorkerJob(file) {
     return { jobId: data.jobId };
 }
 async function fetchWorkerJob(jobId) {
-    const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
-        headers: workerHeaders(),
+    const res = await fetch(`${WORKER_URL}/status/${encodeURIComponent(jobId)}`, {
+        headers: {
+            "x-worker-secret": WORKER_SECRET,
+        },
     });
     if (!res.ok) {
         const body = await readBodySafe(res);
         throw new Error(`Worker status failed (${res.status}): ${body}`);
     }
-    return res.json();
+    return (await res.json());
+}
+function mapWorkerStatus(status) {
+    switch (status) {
+        case "queued":
+        case "pending":
+            return "queued";
+        case "running":
+        case "processing":
+            return "running";
+        case "done":
+        case "completed":
+        case "success":
+            return "done";
+        case "error":
+        case "failed":
+            return "error";
+        default:
+            // fail safe: never store unknown states
+            return "error";
+    }
 }
 // ---------- routes ----------
 // POST /splitter/split
 router.post("/split", upload.single("file"), async (req, res) => {
     try {
-        if (!req.file) {
+        if (!req.file)
             return res.status(400).json({ error: "No file uploaded" });
-        }
         const { jobId } = await createWorkerJob(req.file);
         const job = {
             id: jobId,
@@ -103,9 +117,13 @@ router.get("/status/:jobId", async (req, res) => {
         if (!local)
             return res.status(404).json({ error: "Job not found" });
         const workerJob = await fetchWorkerJob(jobId);
-        local.status = workerJob.status;
-        local.progress = workerJob.progress;
-        local.error = workerJob.error;
+        local.status = mapWorkerStatus(workerJob.status);
+        if (typeof workerJob.progress === "number") {
+            local.progress = workerJob.progress;
+        }
+        if (typeof workerJob.error === "string") {
+            local.error = workerJob.error;
+        }
         local.result = workerJob.result;
         local.updatedAt = now();
         saveJob(local);

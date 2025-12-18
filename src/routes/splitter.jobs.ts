@@ -6,18 +6,18 @@ export type JobStatus = "queued" | "running" | "done" | "error";
 
 export type SplitJob = {
   id: string;
-  status: JobStatus;
+  status: string;        // worker controls this
+  trackName: string;
+  inputPath: string;
   createdAt: string;
   updatedAt: string;
-  inputPath: string;
-  trackName: string;
-  error?: string;
+
+  // 👇 add these
   progress?: string;
-  result?: {
-    vocalsUrl: string;
-    instrumentalUrl: string;
-  };
+  error?: string;
+  result?: any;
 };
+
 
 function now() {
   return new Date().toISOString();
