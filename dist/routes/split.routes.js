@@ -49,9 +49,7 @@ async function createWorkerJob(file) {
     return { jobId: data.jobId };
 }
 async function fetchWorkerJob(jobId) {
-    const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
-        headers: { "x-worker-secret": WORKER_SECRET },
-    });
+    const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, { headers: { "x-worker-secret": WORKER_SECRET } });
     if (!res.ok) {
         const body = await readBodySafe(res);
         throw new Error(`Worker status failed (${res.status}): ${body}`);
@@ -74,7 +72,6 @@ function mapWorkerStatus(status) {
         case "failed":
             return "error";
         default:
-            // fail safe: never store unknown states
             return "error";
     }
 }
@@ -111,18 +108,32 @@ router.get("/status/:jobId", async (req, res) => {
         const local = loadJob(jobId);
         if (!local)
             return res.status(404).json({ error: "Job not found" });
-        const workerJob = await fetchWorkerJob(jobId);
-        local.status = mapWorkerStatus(workerJob.status);
-        if (typeof workerJob.progress === "number") {
-            local.progress = workerJob.progress;
+        try {
+            const workerJob = await fetchWorkerJob(jobId);
+            local.status = mapWorkerStatus(workerJob.status);
+            if (typeof workerJob.progress === "number") {
+                local.progress = workerJob.progress + '';
+            }
+            if (typeof workerJob.error === "string") {
+                local.error = workerJob.error;
+            }
+            local.result = workerJob.result;
+            local.updatedAt = now();
+            saveJob(local);
+            return res.json(local);
         }
-        if (typeof workerJob.error === "string") {
-            local.error = workerJob.error;
+        catch (e) {
+            const msg = String(e?.message || "");
+            // ✅ propagate true 404 from worker (lost job / never created)
+            if (msg.includes("Worker status failed (404)")) {
+                local.status = "error";
+                local.error = "Worker job not found (restart or wrong store path)";
+                local.updatedAt = now();
+                saveJob(local);
+                return res.status(404).json(local);
+            }
+            throw e;
         }
-        local.result = workerJob.result;
-        local.updatedAt = now();
-        saveJob(local);
-        res.json(local);
     }
     catch (err) {
         console.error("status error:", err);

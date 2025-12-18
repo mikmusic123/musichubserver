@@ -8,7 +8,7 @@ const router = express.Router();
 type WorkerJob = {
   id: string;
   status: string;
-  progress?: string;
+  progress?: number; // ✅ number, not string
   error?: string;
   result?: any;
 };
@@ -37,14 +37,9 @@ async function readBodySafe(res: Response) {
   }
 }
 
-
-
-
-
-
-
-
-async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: string }> {
+async function createWorkerJob(
+  file: Express.Multer.File
+): Promise<{ jobId: string }> {
   if (!file?.buffer) throw new Error("No file.buffer");
 
   const bytes = new Uint8Array(file.buffer);
@@ -74,9 +69,10 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
 }
 
 async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
-  const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
-    headers: { "x-worker-secret": WORKER_SECRET! },
-  });
+  const res = await fetch(
+    `${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`,
+    { headers: { "x-worker-secret": WORKER_SECRET! } }
+  );
 
   if (!res.ok) {
     const body = await readBodySafe(res);
@@ -86,33 +82,25 @@ async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
   return (await res.json()) as WorkerJob;
 }
 
-
-
 function mapWorkerStatus(status: string): Job["status"] {
   switch (status) {
     case "queued":
     case "pending":
       return "queued";
-
     case "running":
     case "processing":
       return "running";
-
     case "done":
     case "completed":
     case "success":
       return "done";
-
     case "error":
     case "failed":
       return "error";
-
     default:
-      // fail safe: never store unknown states
       return "error";
   }
 }
-
 
 // ---------- routes ----------
 
@@ -152,24 +140,38 @@ router.get("/status/:jobId", async (req, res) => {
     const local = loadJob(jobId);
     if (!local) return res.status(404).json({ error: "Job not found" });
 
-    const workerJob = await fetchWorkerJob(jobId);
+    try {
+      const workerJob = await fetchWorkerJob(jobId);
 
-local.status = mapWorkerStatus(workerJob.status);
+      local.status = mapWorkerStatus(workerJob.status);
 
-if (typeof workerJob.progress === "number") {
-  local.progress = workerJob.progress;
-}
+      if (typeof workerJob.progress === "number") {
+        local.progress = workerJob.progress + '';
+      }
 
-if (typeof workerJob.error === "string") {
-  local.error = workerJob.error;
-}
+      if (typeof workerJob.error === "string") {
+        local.error = workerJob.error;
+      }
 
-    local.result = workerJob.result;
-    local.updatedAt = now();
+      local.result = workerJob.result;
+      local.updatedAt = now();
 
-    saveJob(local);
+      saveJob(local);
+      return res.json(local);
+    } catch (e: any) {
+      const msg = String(e?.message || "");
 
-    res.json(local);
+      // ✅ propagate true 404 from worker (lost job / never created)
+      if (msg.includes("Worker status failed (404)")) {
+        local.status = "error";
+        local.error = "Worker job not found (restart or wrong store path)";
+        local.updatedAt = now();
+        saveJob(local);
+        return res.status(404).json(local);
+      }
+
+      throw e;
+    }
   } catch (err: any) {
     console.error("status error:", err);
     res.status(502).json({
