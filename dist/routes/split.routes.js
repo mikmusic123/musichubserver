@@ -102,42 +102,47 @@ router.post("/split", upload.single("file"), async (req, res) => {
     }
 });
 // GET /splitter/status/:jobId
+// GET /splitter/status/:jobId
 router.get("/status/:jobId", async (req, res) => {
+    const jobId = req.params.jobId;
     try {
-        const jobId = req.params.jobId;
-        const local = loadJob(jobId);
-        if (!local)
-            return res.status(404).json({ error: "Job not found" });
-        try {
+        // Try local first
+        let local = loadJob(jobId);
+        // If missing locally, try worker anyway (self-heal)
+        if (!local) {
             const workerJob = await fetchWorkerJob(jobId);
-            local.status = mapWorkerStatus(workerJob.status);
-            if (typeof workerJob.progress === "number") {
+            // recreate minimal local entry so future polls work
+            local = {
+                id: jobId,
+                status: mapWorkerStatus(workerJob.status),
+                trackName: "(unknown)",
+                inputPath: "",
+                createdAt: now(),
+                updatedAt: now(),
+            };
+            if (typeof workerJob.progress === "number")
                 local.progress = workerJob.progress + '';
-            }
-            if (typeof workerJob.error === "string") {
+            if (typeof workerJob.error === "string")
                 local.error = workerJob.error;
-            }
             local.result = workerJob.result;
-            local.updatedAt = now();
             saveJob(local);
             return res.json(local);
         }
-        catch (e) {
-            const msg = String(e?.message || "");
-            // ✅ propagate true 404 from worker (lost job / never created)
-            if (msg.includes("Worker status failed (404)")) {
-                local.status = "error";
-                local.error = "Worker job not found (restart or wrong store path)";
-                local.updatedAt = now();
-                saveJob(local);
-                return res.status(404).json(local);
-            }
-            throw e;
-        }
+        // Normal path (local exists)
+        const workerJob = await fetchWorkerJob(jobId);
+        local.status = mapWorkerStatus(workerJob.status);
+        if (typeof workerJob.progress === "number")
+            local.progress = workerJob.progress + '';
+        if (typeof workerJob.error === "string")
+            local.error = workerJob.error;
+        local.result = workerJob.result;
+        local.updatedAt = now();
+        saveJob(local);
+        return res.json(local);
     }
     catch (err) {
         console.error("status error:", err);
-        res.status(502).json({
+        return res.status(502).json({
             error: "Worker unavailable",
             detail: err?.message,
         });
