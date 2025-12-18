@@ -43,7 +43,7 @@ async function createWorkerJob(file) {
     });
     // ✅ field name MUST match worker: upload.single("file")
     form.append("file", blob, file.originalname || "upload.bin");
-    const res = await fetch(`${WORKER_URL}/split`, {
+    const res = await fetch(`${WORKER_URL}/v1/split`, {
         method: "POST",
         headers: workerHeaders(),
         // ❌ DO NOT set Content-Type
@@ -59,7 +59,7 @@ async function createWorkerJob(file) {
     return { jobId: data.jobId };
 }
 async function fetchWorkerJob(jobId) {
-    const res = await fetch(`${WORKER_URL}/status/${encodeURIComponent(jobId)}`, {
+    const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
         headers: workerHeaders(),
     });
     if (!res.ok) {

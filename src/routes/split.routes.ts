@@ -53,7 +53,7 @@ async function createWorkerJob(file: Express.Multer.File) {
   // ✅ field name MUST match worker: upload.single("file")
   form.append("file", blob as any, file.originalname || "upload.bin");
 
-  const res = await fetch(`${WORKER_URL}/split`, {
+  const res = await fetch(`${WORKER_URL}/v1/split`, {
     method: "POST",
     headers: workerHeaders(),
     // ❌ DO NOT set Content-Type
@@ -72,7 +72,7 @@ async function createWorkerJob(file: Express.Multer.File) {
 }
 
 async function fetchWorkerJob(jobId: string) {
-  const res = await fetch(`${WORKER_URL}/status/${encodeURIComponent(jobId)}`, {
+  const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
     headers: workerHeaders(),
   });
 
