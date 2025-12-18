@@ -1,117 +1,125 @@
 // (SERVER) src/routes/split.routes.ts
 import express from "express";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { spawn } from "child_process";
 import { loadJob, saveJob, now, type Job } from "../split/jobStore.js";
 
 const router = express.Router();
+const upload = multer(); // ⬅️ memory storage (buffer)
 
-const UPLOAD_DIR = path.resolve("uploads");
-const OUTPUT_DIR = path.resolve("outputs");
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+// ---- worker config ----
+const WORKER_URL = process.env.WORKER_URL!;
+const WORKER_SECRET = process.env.WORKER_SECRET!;
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".bin";
-    const safeBase = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    cb(null, safeBase + ext);
-  },
-});
-const upload = multer({ storage });
-
-const demucsCmd =
-  process.platform === "win32"
-    ? path.resolve(".venv", "Scripts", "demucs.exe")
-    : "demucs";
-
-const MODEL = "mdx_extra";
-
-function runJob(job: Job) {
-  job.status = "running";
-  job.updatedAt = now();
-  job.progress = "Starting demucs…";
-  saveJob(job);
-
-  const args = [
-    "-n", MODEL,
-    "--two-stems=vocals",
-    "--shifts", "0",
-    "--segment", "2",
-    "--overlap", "0.1",
-    "-o", OUTPUT_DIR,
-    job.inputPath,
-  ];
-
-  const p = spawn(demucsCmd, args, {
-    stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, OMP_NUM_THREADS: "1", MKL_NUM_THREADS: "1", TORCH_NUM_THREADS: "1" },
-  });
-
-  const onLine = (d: Buffer) => {
-    const txt = d.toString();
-    job.progress = txt.slice(Math.max(0, txt.length - 200));
-    job.updatedAt = now();
-    saveJob(job);
-  };
-
-  p.stdout.on("data", onLine);
-  p.stderr.on("data", onLine);
-
-  p.on("error", (err) => {
-    job.status = "error";
-    job.error = err.message;
-    job.updatedAt = now();
-    saveJob(job);
-  });
-
-  p.on("close", (code) => {
-    if (code === 0) {
-      const relBase = path.posix.join(MODEL, job.trackName);
-      job.status = "done";
-      job.result = {
-        vocalsUrl: `/files/${relBase}/vocals.wav`,
-        instrumentalUrl: `/files/${relBase}/no_vocals.wav`,
-      };
-    } else {
-      job.status = "error";
-      job.error = `demucs exited ${code}`;
-    }
-    job.updatedAt = now();
-    saveJob(job);
-  });
+if (!WORKER_URL || !WORKER_SECRET) {
+  throw new Error("WORKER_URL or WORKER_SECRET not set");
 }
 
+// ---- helpers ----
+async function createWorkerJob(file: Express.Multer.File) {
+  const form = new FormData();
+
+  const blob = new Blob([new Uint8Array(file.buffer)], {
+    type: file.mimetype || "application/octet-stream",
+  });
+
+  form.append("file", blob, file.originalname);
+
+  const res = await fetch(`${WORKER_URL}/v1/split`, {
+    method: "POST",
+    headers: {
+      "x-worker-secret": WORKER_SECRET,
+    },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`Worker create failed: ${t}`);
+  }
+
+  return res.json() as Promise<{ jobId: string }>;
+}
+
+async function fetchWorkerJob(jobId: string) {
+  const res = await fetch(`${WORKER_URL}/v1/status/${jobId}`, {
+    headers: {
+      "x-worker-secret": WORKER_SECRET,
+    },
+  });
+
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`Worker status failed: ${t}`);
+  }
+
+  return res.json();
+}
+
+// ---- routes ----
+
 // POST /splitter/split
-router.post("/split", upload.single("file"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+router.post("/split", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
 
-  const jobId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const trackName = path.parse(req.file.path).name;
+    // create job on worker
+    const { jobId } = await createWorkerJob(req.file);
 
-  const job: Job = {
-    id: jobId,
-    status: "queued",
-    trackName,
-    inputPath: req.file.path,
-    createdAt: now(),
-    updatedAt: now(),
-  };
+    // persist locally (server-side tracking only)
+    const job: Job = {
+      id: jobId,
+      status: "queued",
+      trackName: req.file.originalname,
+      inputPath: "", // no local file anymore
+      createdAt: now(),
+      updatedAt: now(),
+    };
 
-  saveJob(job);   // ✅ persist immediately
-  runJob(job);    // ✅ background
+    saveJob(job);
 
-  res.status(202).json({ jobId, statusUrl: `/splitter/status/${jobId}` });
+    res.status(202).json({
+      jobId,
+      statusUrl: `/splitter/status/${jobId}`,
+    });
+  } catch (err: any) {
+    console.error("split error:", err);
+    res.status(500).json({ error: err?.message || "Split failed" });
+  }
 });
 
 // GET /splitter/status/:jobId
-router.get("/status/:jobId", (req, res) => {
-  const job = loadJob(req.params.jobId);
-  if (!job) return res.status(404).json({ error: "Job not found" });
-  return res.json(job);
+router.get("/status/:jobId", async (req, res) => {
+  try {
+    const jobId = req.params.jobId;
+
+    // ensure we know this job
+    const local = loadJob(jobId);
+    if (!local) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    // fetch worker state
+    const workerJob = await fetchWorkerJob(jobId);
+
+    // sync minimal fields
+    local.status = workerJob.status;
+    local.progress = workerJob.progress;
+    local.error = workerJob.error;
+    local.result = workerJob.result;
+    local.updatedAt = now();
+
+    saveJob(local);
+
+    res.json(local);
+  } catch (err: any) {
+    console.error("status error:", err);
+    res.status(502).json({
+      error: "Worker unavailable",
+      detail: err?.message,
+    });
+  }
 });
 
 export default router;
