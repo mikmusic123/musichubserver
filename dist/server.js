@@ -4,6 +4,8 @@ import fs from "fs";
 import path from "path";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+// (SERVER) src/server.ts  (ADD THESE LINES)
+import splitterWorkerRouter from "./routes/splitter.worker.js";
 import bankRouter from "./bank/bank.routes.js";
 import router from "./routes/split.routes.js";
 const CACHE_ROOT = path.resolve(".cache");
@@ -103,6 +105,8 @@ app.use("/files", express.static(path.resolve("outputs")));
 app.use("/splitter", router);
 // 5️⃣ Rest of API
 app.use(bankRouter);
+// ...after app.use(cors(corsOptions)) and before app.listen:
+app.use("/splitter-worker", splitterWorkerRouter);
 // ✅ this creates POST /splitter/split
 // ✅ prove correct server is running
 app.get("/health", (_req, res) => res.json({ ok: true }));

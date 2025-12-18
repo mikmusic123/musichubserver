@@ -6,6 +6,12 @@ import type { Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+// (SERVER) src/server.ts  (ADD THESE LINES)
+import splitterWorkerRouter from "./routes/splitter.worker.js";
+
+
+
+
 import bankRouter from "./bank/bank.routes.js";
 import router from "./routes/split.routes.js";
 
@@ -237,6 +243,9 @@ app.use("/splitter", router);
 
 // 5️⃣ Rest of API
 app.use(bankRouter);
+
+// ...after app.use(cors(corsOptions)) and before app.listen:
+app.use("/splitter-worker", splitterWorkerRouter);
 
 
 // ✅ this creates POST /splitter/split
