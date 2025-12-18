@@ -89,18 +89,26 @@ const corsOptions = {
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
 };
-app.use(cors(corsOptions));
+// app.use(cors(corsOptions));
 // ✅ IMPORTANT: Express 5 + path-to-regexp v8 does NOT like "*" here.
 // Use regex instead:
+// 1️⃣ CORS FIRST (always)
+app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
-// ✅ handle preflight safely
+// 2️⃣ Body parsing
 app.use(express.json());
-app.use("/splitter", splitRouter);
+// 3️⃣ Static files
 app.use("/files", express.static(path.resolve("outputs")));
+// 4️⃣ Feature routers
+app.use("/splitter", splitRouter);
+// 5️⃣ Rest of API
 app.use(router);
 // ✅ this creates POST /splitter/split
 // ✅ prove correct server is running
 app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/", (_req, res) => {
+    res.json({ ok: true, service: "MusicHub Server" });
+});
 // Use an absolute path based on the project root
 // This works both with ts-node (src) and compiled JS (dist) as long as you run from project root
 const DATA_PATH = path.resolve(process.cwd(), "src", "data", "shows.json");
