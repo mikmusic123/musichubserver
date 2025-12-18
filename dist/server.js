@@ -90,14 +90,12 @@ app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 // ✅ handle preflight safely
 app.use(express.json());
-// ✅ remove app.options(...) entirely
-// or named import if you used named export
-app.use("/files", express.static(path.resolve("outputs")));
 app.use("/splitter", splitRouter);
+app.use("/files", express.static(path.resolve("outputs")));
+app.use(router);
 // ✅ this creates POST /splitter/split
 // ✅ prove correct server is running
 app.get("/health", (_req, res) => res.json({ ok: true }));
-app.use(router);
 // Use an absolute path based on the project root
 // This works both with ts-node (src) and compiled JS (dist) as long as you run from project root
 const DATA_PATH = path.resolve(process.cwd(), "src", "data", "shows.json");

@@ -21,13 +21,36 @@ const upload = multer({ storage });
 const demucsCmd = process.platform === "win32"
     ? path.resolve(".venv", "Scripts", "demucs.exe")
     : "demucs";
-const jobs = new Map();
+const JOBS_PATH = path.resolve("jobs.json");
+function loadJobs() {
+    try {
+        if (!fs.existsSync(JOBS_PATH))
+            return {};
+        return JSON.parse(fs.readFileSync(JOBS_PATH, "utf-8") || "{}");
+    }
+    catch {
+        return {};
+    }
+}
+function saveJobs(all) {
+    fs.writeFileSync(JOBS_PATH, JSON.stringify(all, null, 2), "utf-8");
+}
+function getJob(id) {
+    const all = loadJobs();
+    return all[id];
+}
+function setJob(job) {
+    const all = loadJobs();
+    all[job.id] = job;
+    saveJobs(all);
+}
 const MODEL = "mdx_extra"; // ✅ change to "htdemucs" if you have RAM
 const now = () => new Date().toISOString();
 function runJob(job) {
     job.status = "running";
     job.updatedAt = now();
     job.progress = "Starting demucs…";
+    setJob(job);
     const args = [
         "-n", MODEL,
         "--two-stems=vocals",
@@ -43,6 +66,7 @@ function runJob(job) {
     const onLine = (d) => {
         job.progress = d.toString().slice(0, 400);
         job.updatedAt = now();
+        setJob(job);
     };
     p.stdout.on("data", onLine);
     p.stderr.on("data", onLine);
@@ -50,6 +74,7 @@ function runJob(job) {
         job.status = "error";
         job.error = err.message;
         job.updatedAt = now();
+        setJob(job);
     });
     p.on("close", (code) => {
         if (code === 0) {
@@ -65,6 +90,7 @@ function runJob(job) {
             job.error = `demucs exited ${code}`;
         }
         job.updatedAt = now();
+        setJob(job);
     });
 }
 // POST /splitter/split
@@ -81,8 +107,8 @@ router.post("/split", upload.single("file"), (req, res) => {
         createdAt: now(),
         updatedAt: now(),
     };
-    jobs.set(jobId, job);
-    runJob(job); // ✅ background (do not await)
+    setJob(job);
+    runJob(job);
     res.status(202).json({
         jobId,
         statusUrl: `/splitter/status/${jobId}`,
@@ -90,10 +116,11 @@ router.post("/split", upload.single("file"), (req, res) => {
 });
 // GET /splitter/status/:jobId
 router.get("/status/:jobId", (req, res) => {
-    const job = jobs.get(req.params.jobId);
+    const job = getJob(req.params.jobId);
     if (!job)
         return res.status(404).json({ error: "Job not found" });
     res.json(job);
+    setJob(job);
 });
 export default router;
 //# sourceMappingURL=split.routes.js.map
