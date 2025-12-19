@@ -52,7 +52,7 @@ async function createWorkerJob(
   // field name MUST match worker: upload.single("file")
   form.append("file", blob as any, file.originalname || "upload.bin");
 
-  const res = await fetch(`${WORKER_URL}/v1/split`, {
+  const res = await fetch(`${WORKER_URL}/split`, {
     method: "POST",
     headers: { "x-worker-secret": WORKER_SECRET! },
     body: form as any,
@@ -70,7 +70,7 @@ async function createWorkerJob(
 
 async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
   const res = await fetch(
-    `${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`,
+    `${WORKER_URL}/status/${encodeURIComponent(jobId)}`,
     { headers: { "x-worker-secret": WORKER_SECRET! } }
   );
 
