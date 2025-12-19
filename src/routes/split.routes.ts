@@ -7,8 +7,8 @@ const router = express.Router();
 
 type WorkerJob = {
   id: string;
-  status: string;
-  progress?: number; // ✅ number, not string
+  status: "queued" | "running" | "done" | "error" | string;
+  progress?: number;
   error?: string;
   result?: any;
 };
@@ -20,12 +20,14 @@ const upload = multer({
 });
 
 // ---------- worker config ----------
-const WORKER_URL = process.env.WORKER_URL;
+const WORKER_URL_RAW = process.env.WORKER_URL;
 const WORKER_SECRET = process.env.WORKER_SECRET;
 
-if (!WORKER_URL || !WORKER_SECRET) {
+if (!WORKER_URL_RAW || !WORKER_SECRET) {
   throw new Error("WORKER_URL or WORKER_SECRET not set");
 }
+
+const WORKER_URL = WORKER_URL_RAW.trim().replace(/\/+$/, "");
 
 // ---------- helpers ----------
 async function readBodySafe(res: Response) {
@@ -35,51 +37,6 @@ async function readBodySafe(res: Response) {
   } catch {
     return text;
   }
-}
-
-async function createWorkerJob(
-  file: Express.Multer.File
-): Promise<{ jobId: string }> {
-  if (!file?.buffer) throw new Error("No file.buffer");
-
-  const bytes = new Uint8Array(file.buffer);
-
-  const form = new FormData();
-  const blob = new Blob([bytes], {
-    type: file.mimetype || "application/octet-stream",
-  });
-
-  // field name MUST match worker: upload.single("file")
-  form.append("file", blob as any, file.originalname || "upload.bin");
-
-  const res = await fetch(`${WORKER_URL}/split`, {
-    method: "POST",
-    headers: { "x-worker-secret": WORKER_SECRET! },
-    body: form as any,
-  });
-
-  if (!res.ok) {
-    const body = await readBodySafe(res);
-    throw new Error(`Worker create failed (${res.status}): ${body}`);
-  }
-
-  const data = (await res.json()) as { jobId?: string };
-  if (!data.jobId) throw new Error("Worker response missing jobId");
-  return { jobId: data.jobId };
-}
-
-async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
-  const res = await fetch(
-    `${WORKER_URL}/status/${encodeURIComponent(jobId)}`,
-    { headers: { "x-worker-secret": WORKER_SECRET! } }
-  );
-
-  if (!res.ok) {
-    const body = await readBodySafe(res);
-    throw new Error(`Worker status failed (${res.status}): ${body}`);
-  }
-
-  return (await res.json()) as WorkerJob;
 }
 
 function mapWorkerStatus(status: string): Job["status"] {
@@ -102,6 +59,48 @@ function mapWorkerStatus(status: string): Job["status"] {
   }
 }
 
+async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: string }> {
+  if (!file?.buffer) throw new Error("No file.buffer");
+
+  const form = new FormData();
+
+  // Node 18+ supports Blob. Buffer is accepted at runtime, TS can be fussy.
+  const blob = new Blob([file.buffer as unknown as BlobPart], {
+    type: file.mimetype || "application/octet-stream",
+  });
+
+  // field name MUST match worker: upload.single("file")
+  form.append("file", blob, file.originalname || "upload.bin");
+
+  const res = await fetch(`${WORKER_URL}/v1/split`, {
+    method: "POST",
+    headers: { "x-worker-secret": WORKER_SECRET! },
+    body: form as any, // DO NOT set Content-Type; fetch sets boundary
+  });
+
+  if (!res.ok) {
+    const body = await readBodySafe(res);
+    throw new Error(`Worker create failed (${res.status}): ${body}`);
+  }
+
+  const data = (await res.json()) as { jobId?: string };
+  if (!data.jobId) throw new Error("Worker response missing jobId");
+  return { jobId: data.jobId };
+}
+
+async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
+  const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
+    headers: { "x-worker-secret": WORKER_SECRET! },
+  });
+
+  if (!res.ok) {
+    const body = await readBodySafe(res);
+    throw new Error(`Worker status failed (${res.status}): ${body}`);
+  }
+
+  return (await res.json()) as WorkerJob;
+}
+
 // ---------- routes ----------
 
 // POST /splitter/split
@@ -122,48 +121,24 @@ router.post("/split", upload.single("file"), async (req, res) => {
 
     saveJob(job);
 
-    res.status(202).json({
+    return res.status(202).json({
       jobId,
       statusUrl: `/splitter/status/${jobId}`,
     });
   } catch (err: any) {
     console.error("split error:", err);
-    res.status(500).json({ error: err?.message || "Split failed" });
+    return res.status(500).json({ error: err?.message || "Split failed" });
   }
 });
 
-// GET /splitter/status/:jobId
 // GET /splitter/status/:jobId
 router.get("/status/:jobId", async (req, res) => {
   const jobId = req.params.jobId;
 
   try {
-    // Try local first
-    let local = loadJob(jobId);
+    const local = loadJob(jobId);
+    if (!local) return res.status(404).json({ error: "Job not found" });
 
-    // If missing locally, try worker anyway (self-heal)
-    if (!local) {
-      const workerJob = await fetchWorkerJob(jobId);
-
-      // recreate minimal local entry so future polls work
-      local = {
-        id: jobId,
-        status: mapWorkerStatus(workerJob.status),
-        trackName: "(unknown)",
-        inputPath: "",
-        createdAt: now(),
-        updatedAt: now(),
-      } as Job;
-
-      if (typeof workerJob.progress === "number") local.progress = workerJob.progress +'';
-      if (typeof workerJob.error === "string") local.error = workerJob.error;
-      local.result = workerJob.result;
-
-      saveJob(local);
-      return res.json(local);
-    }
-
-    // Normal path (local exists)
     const workerJob = await fetchWorkerJob(jobId);
 
     local.status = mapWorkerStatus(workerJob.status);
@@ -182,6 +157,5 @@ router.get("/status/:jobId", async (req, res) => {
     });
   }
 });
-
 
 export default router;
