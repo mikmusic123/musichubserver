@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 // (SERVER) src/server.ts  (ADD THESE LINES)
+import splitRouter from "./routes/split.routes.js";
 import splitterWorkerRouter from "./routes/splitter.worker.js";
 
 
@@ -98,6 +99,12 @@ export type MarketItem = {
 };
 
 
+
+
+
+
+// start server
+const PORT = Number(process.env.PORT) || 4000;
 
 // ---- Resource JSON "db" ----
 
@@ -224,28 +231,27 @@ const corsOptions: cors.CorsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-// app.use(cors(corsOptions));
 
-// ✅ IMPORTANT: Express 5 + path-to-regexp v8 does NOT like "*" here.
-// Use regex instead:
-// 1️⃣ CORS FIRST (always)
+// 1) CORS first
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 
-// 2️⃣ Body parsing
+// 2) Body parsing
 app.use(express.json());
 
-// 3️⃣ Static files
+// 3) Static (ONLY if you want server-hosted files; optional)
+// Usually worker hosts /files, so you can remove this.
 app.use("/files", express.static(path.resolve("outputs")));
 
-// 4️⃣ Feature bankRouters
-app.use("/splitter", router);
+// 4) Splitter API (client hits this)
+app.use("/splitter", splitRouter);
 
-// 5️⃣ Rest of API
+// 5) Rest of API
 app.use(bankRouter);
 
-// ...after app.use(cors(corsOptions)) and before app.listen:
-app.use("/splitter-worker", splitterWorkerRouter);
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
+app.listen(PORT, "0.0.0.0", () => console.log(`Listening on ${PORT}`));
 
 
 // ✅ this creates POST /splitter/split
@@ -771,10 +777,6 @@ app.delete("/resources/:id", (req, res) => {
 
 
 
-
-
-// start server
-const PORT = Number(process.env.PORT) || 4000;
 
 try {
   const server = app.listen(PORT, () => {
