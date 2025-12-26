@@ -51,4 +51,23 @@ export type MarketItem = {
     category: string;
     linkUrl: string;
 };
+export type Round = {
+    roundId: string;
+    gameType: "guess_note" | "guess_bpm" | "guess_interval" | "guess_chord" | "guess_key";
+    prompt: string;
+    strudel: {
+        code: string;
+        seconds: number;
+    };
+    choices: string[];
+};
+export type StoredRound = {
+    roundId: string;
+    gameType: GameType;
+    correct: string;
+    expiresAt: number;
+    points: number;
+};
+type GameType = "guess_note" | "guess_bpm" | "guess_interval" | "guess_chord" | "guess_key";
+export {};
 //# sourceMappingURL=server.d.ts.map
