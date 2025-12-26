@@ -226,7 +226,7 @@ function writeResources(resources: Resource[]) {
 const app = express();
 
 const corsOptions: cors.CorsOptions = {
-  origin: ["https://musichub-phi.vercel.app", "http://localhost:5173"],
+  origin: ["https://musichub-phi.vercel.app", "http://localhost:5173", "https://musichub.studio"],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
