@@ -90,7 +90,7 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
 
 async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
   const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
-  headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},,
+  headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},
   });
 
   if (!res.ok) {
