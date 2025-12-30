@@ -67,7 +67,7 @@ async function createWorkerJob(file) {
     form.append("file", blob, file.originalname || "upload.bin");
     const res = await fetch(`${WORKER_URL}/v1/split`, {
         method: "POST",
-        headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},
+        headers: { "x-worker-secret": "super-long-random-secret" },
         body: form, // DO NOT set Content-Type; fetch sets boundary
     });
     if (!res.ok) {
