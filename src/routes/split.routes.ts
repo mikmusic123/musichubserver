@@ -13,8 +13,6 @@ router.use(cors({
   methods: ["GET","POST","OPTIONS"],
   allowedHeaders: ["Content-Type","Authorization","x-worker-secret"],
 }));
-router.options("*", cors());
-
 
 type WorkerJob = {
   id: string;
