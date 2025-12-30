@@ -1,5 +1,5 @@
 // (SERVER) src/services/workerClient.ts
-const WORKER_URL = process.env.WORKER_URL!;
+const WORKER_URL = "65.109.167.110:8787"
 const WORKER_SECRET = process.env.WORKER_SECRET!;
 
 export async function sendToWorker(file: Buffer, filename: string) {
