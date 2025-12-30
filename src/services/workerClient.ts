@@ -11,7 +11,7 @@ export async function sendToWorker(file: Buffer, filename: string) {
 
   form.append("file", blob, filename);
 
-  const res = await fetch(`${WORKER_URL}/v1/split`, {
+  const res = await fetch(`${WORKER_URL}/split`, {
     method: "POST",
     headers: { "x-worker-secret": WORKER_SECRET },
     body: form,
@@ -22,7 +22,7 @@ export async function sendToWorker(file: Buffer, filename: string) {
 }
 
 export async function getWorkerStatus(jobId: string) {
-  const res = await fetch(`${WORKER_URL}/v1/status/${jobId}`, {
+  const res = await fetch(`${WORKER_URL}/status/${jobId}`, {
     headers: { "x-worker-secret": WORKER_SECRET },
   });
 

@@ -90,9 +90,9 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
   // field name MUST match worker: upload.single("file")
   form.append("file", blob, file.originalname || "upload.bin");
 
-  const res = await fetch(`${WORKER_URL}/v1/split`, {
+  const res = await fetch(`${WORKER_URL}/split`, {
     method: "POST",
-    headers: WORKER_SECRET? {"X-Worker-Secret": WORKER_SECRET }: {},
+    headers: WORKER_SECRET? {"x-worker-secret": WORKER_SECRET }: {},
     body: form as any, // DO NOT set Content-Type; fetch sets boundary
   });
 
@@ -107,7 +107,7 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
 }
 
 async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
-  const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
+  const res = await fetch(`${WORKER_URL}/status/${encodeURIComponent(jobId)}`, {
   headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},
   });
 
