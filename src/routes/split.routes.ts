@@ -74,6 +74,7 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
 
   const res = await fetch(`${WORKER_URL}/v1/split`, {
     method: "POST",
+    headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},
     body: form as any, // DO NOT set Content-Type; fetch sets boundary
   });
 
@@ -89,7 +90,7 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
 
 async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
   const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
-    headers: { },
+  headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},,
   });
 
   if (!res.ok) {
