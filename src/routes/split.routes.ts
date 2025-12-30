@@ -23,6 +23,7 @@ const upload = multer({
 const WORKER_URL_RAW = process.env.WORKER_URL;
 const WORKER_SECRET = process.env.WORKER_SECRET;
 
+
 if (!WORKER_URL_RAW || !WORKER_SECRET) {
   throw new Error("WORKER_URL or WORKER_SECRET not set");
 }
@@ -38,6 +39,23 @@ async function readBodySafe(res: Response) {
     return text;
   }
 }
+
+// (SERVER) src/routes/split.routes.ts
+
+
+
+// createWorkerJob
+// const res = await fetch(`${WORKER_URL}/v1/split`, {
+//   method: "POST",
+//   headers: workerAuthHeaders(),
+//   body: form as any,
+// });
+
+// // fetchWorkerJob
+// const res2 = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
+//   headers: workerAuthHeaders(),
+// });
+
 
 function mapWorkerStatus(status: string): Job["status"] {
   switch (status) {
@@ -74,7 +92,7 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
 
   const res = await fetch(`${WORKER_URL}/v1/split`, {
     method: "POST",
-    headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},
+    headers: WORKER_SECRET? {"X-Worker-Secret": WORKER_SECRET }: {},
     body: form as any, // DO NOT set Content-Type; fetch sets boundary
   });
 
@@ -120,7 +138,11 @@ router.post("/split", upload.single("file"), async (req, res) => {
       updatedAt: now(),
     };
 
+    console.log("about to create job:");
+
     saveJob(job);
+
+    console.log('returning job');
 
     return res.status(202).json({
       jobId,

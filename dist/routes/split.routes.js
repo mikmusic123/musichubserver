@@ -25,6 +25,17 @@ async function readBodySafe(res) {
         return text;
     }
 }
+// (SERVER) src/routes/split.routes.ts
+// createWorkerJob
+// const res = await fetch(`${WORKER_URL}/v1/split`, {
+//   method: "POST",
+//   headers: workerAuthHeaders(),
+//   body: form as any,
+// });
+// // fetchWorkerJob
+// const res2 = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
+//   headers: workerAuthHeaders(),
+// });
 function mapWorkerStatus(status) {
     switch (status) {
         case "queued":
@@ -56,7 +67,7 @@ async function createWorkerJob(file) {
     form.append("file", blob, file.originalname || "upload.bin");
     const res = await fetch(`${WORKER_URL}/v1/split`, {
         method: "POST",
-        headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},
+        headers: WORKER_SECRET ? { "X-Worker-Secret": WORKER_SECRET } : {},
         body: form, // DO NOT set Content-Type; fetch sets boundary
     });
     if (!res.ok) {
@@ -94,7 +105,9 @@ router.post("/split", upload.single("file"), async (req, res) => {
             createdAt: now(),
             updatedAt: now(),
         };
+        console.log("about to create job:");
         saveJob(job);
+        console.log('returning job');
         return res.status(202).json({
             jobId,
             statusUrl: `/splitter/status/${jobId}`,
