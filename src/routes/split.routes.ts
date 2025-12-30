@@ -2,17 +2,19 @@
 import express from "express";
 import multer from "multer";
 import { loadJob, saveJob, now, type Job } from "../split/jobStore.js";
-const app = express()
 const router = express.Router();
 
 import cors from "cors";
 
 
-router.use(cors({
+const corsOpts = {
   origin: ["https://musichub.studio", "http://localhost:5173"],
-  methods: ["GET","POST","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization","x-worker-secret"],
-}));
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-worker-secret"],
+};
+
+router.use(cors(corsOpts));
+router.options("*", cors(corsOpts));
 
 type WorkerJob = {
   id: string;
