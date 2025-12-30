@@ -2,7 +2,15 @@
 import express from "express";
 import multer from "multer";
 import { loadJob, saveJob, now } from "../split/jobStore.js";
+const app = express();
 const router = express.Router();
+import cors from "cors";
+router.use(cors({
+    origin: ["https://musichub.studio", "http://localhost:5173"],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-worker-secret"],
+}));
+router.options("*", cors());
 // ---------- upload ----------
 const upload = multer({
     storage: multer.memoryStorage(),
