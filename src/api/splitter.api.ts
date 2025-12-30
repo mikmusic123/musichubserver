@@ -116,7 +116,6 @@ export async function createSplitJob(
     `${API_BASE}/splitter/split`,
     {
       method: "POST",
-      headers: { ...authHeaders(token) },
       body: form,
     }
   );
@@ -132,7 +131,7 @@ export async function fetchSplitJob(
   }
 
   const res = await fetch(`${API_BASE}/splitter/status/${jobId}`, {
-    headers: { ...authHeaders(token) },
+    headers: {  },
   });
 
   return handleJson<SplitJob>(res);

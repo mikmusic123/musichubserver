@@ -65,7 +65,6 @@ export async function createSplitJob(file, options = {}, token) {
         form.append("outputFormat", options.outputFormat);
     return safeFetchJson(`${API_BASE}/splitter/split`, {
         method: "POST",
-        headers: { ...authHeaders(token) },
         body: form,
     });
 }
@@ -75,7 +74,7 @@ export async function fetchSplitJob(jobId, token) {
         throw new Error("SUPPLY VALUES FOR URI: jobId is missing");
     }
     const res = await fetch(`${API_BASE}/splitter/status/${jobId}`, {
-        headers: { ...authHeaders(token) },
+        headers: {},
     });
     return handleJson(res);
 }

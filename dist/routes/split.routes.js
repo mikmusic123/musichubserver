@@ -56,7 +56,6 @@ async function createWorkerJob(file) {
     form.append("file", blob, file.originalname || "upload.bin");
     const res = await fetch(`${WORKER_URL}/v1/split`, {
         method: "POST",
-        headers: { "x-worker-secret": WORKER_SECRET },
         body: form, // DO NOT set Content-Type; fetch sets boundary
     });
     if (!res.ok) {
@@ -70,9 +69,10 @@ async function createWorkerJob(file) {
 }
 async function fetchWorkerJob(jobId) {
     const res = await fetch(`${WORKER_URL}/v1/status/${encodeURIComponent(jobId)}`, {
-        headers: { "x-worker-secret": WORKER_SECRET },
+        headers: {},
     });
     if (!res.ok) {
+        console.log(JSON.stringify(res.body));
         const body = await readBodySafe(res);
         throw new Error(`Worker status failed (${res.status}): ${body}`);
     }

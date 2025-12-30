@@ -99,6 +99,27 @@ export type MarketItem = {
 };
 
 
+//SoundTrainingGame
+
+export type Round = {
+  roundId: string;
+  gameType: "guess_note" | "guess_bpm" | "guess_interval" | "guess_chord" | "guess_key";
+  prompt: string;
+  strudel: {
+    code: string;        // the audio recipe
+    seconds: number;     // how long to play
+  };
+  choices: string[];     // MCQ options
+};
+
+
+export type StoredRound = {
+  roundId: string;
+  gameType: GameType;
+  correct: string;
+  expiresAt: number;
+  points: number;
+};
 
 
 
@@ -222,8 +243,8 @@ function writeResources(resources: Resource[]) {
   );
 }
 
-
 const app = express();
+
 
 const corsOptions: cors.CorsOptions = {
   origin: ["https://musichub-phi.vercel.app", "http://localhost:5173", "https://musichub.studio"],
@@ -658,6 +679,128 @@ app.get("/market/exclusive", (_req, res) => {
 
 
 
+// server/index.ts
+import { z } from "zod";
+import crypto from "crypto";
+
+
+app.use(express.json());
+app.use(cors({ origin: ["https://musichub.studio", "http://localhost:5173"] }));
+
+type GameType = "guess_note" | "guess_bpm" | "guess_interval" | "guess_chord" | "guess_key";
+
+
+
+const rounds = new Map<string, StoredRound>();
+const scores = new Map<string, number>(); // userId -> points
+
+function id() {
+  return crypto.randomBytes(12).toString("hex");
+}
+
+function pick<T>(arr: T[]) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function shuffle<T>(arr: T[]) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+// ----- round generators (simple starters) -----
+function makeGuessNoteRound() {
+  const notes = ["c", "d", "e", "f", "g", "a", "b"];
+  const correct = pick(notes);
+  const choices = shuffle([correct, pick(notes), pick(notes), pick(notes)]).slice(0, 4);
+
+  // Strudel code: short repeating tone for ~2s
+  const code = `
+setcps(1)
+$: note("${correct}4").s("sine").gain(0.9).legato(0.2)
+`;
+
+  return { correct, choices, code, seconds: 2.5, prompt: "Which note do you hear?" };
+}
+
+function makeGuessBpmRound() {
+  const bpms = [70, 80, 90, 100, 110, 120, 140];
+  const correct = pick(bpms);
+  const choices = shuffle([correct, pick(bpms), pick(bpms), pick(bpms)]).slice(0, 4).map(String);
+
+  // cps approx = bpm / 60
+  const cps = (correct! / 60).toFixed(4);
+  const code = `
+setcps(${cps})
+$: s("bd").gain(1)
+`;
+
+  return { correct: String(correct), choices, code, seconds: 4, prompt: "Guess the BPM." };
+}
+
+// TODO: interval/chord/key can follow the same pattern:
+// - choose target
+// - generate strudel code that plays arpeggio or cadence
+// - make MCQ
+// - store correct server-side
+
+app.get("/api/game/round", (req, res) => {
+  const type = (req.query.type as GameType) || "guess_note";
+
+  let generated;
+  if (type === "guess_note") generated = makeGuessNoteRound();
+  else if (type === "guess_bpm") generated = makeGuessBpmRound();
+  else generated = makeGuessNoteRound(); // placeholder for now
+
+  const roundId = id();
+  rounds.set(roundId, {
+    roundId,
+    gameType: type,
+    correct: generated.correct!,
+    expiresAt: Date.now() + 2 * 60 * 1000,
+    points: 10,
+  });
+
+  res.json({
+    roundId,
+    gameType: type,
+    prompt: generated.prompt,
+    strudel: { code: generated.code, seconds: generated.seconds },
+    choices: generated.choices,
+  });
+});
+
+const AnswerBody = z.object({
+  roundId: z.string(),
+  choice: z.string(),
+  userId: z.string(),
+});
+
+app.post("/api/game/answer", (req, res) => {
+  const parsed = AnswerBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "bad_request" });
+
+  const { roundId, choice, userId } = parsed.data;
+  const stored = rounds.get(roundId);
+  if (!stored) return res.status(404).json({ error: "round_not_found" });
+  if (Date.now() > stored.expiresAt) return res.status(410).json({ error: "round_expired" });
+
+  const correct = choice === stored.correct;
+  const current = scores.get(userId) || 0;
+  const awarded = correct ? stored.points : 0;
+  const total = current + awarded;
+
+  scores.set(userId, total);
+  rounds.delete(roundId); // one-shot
+
+  res.json({ correct, pointsAwarded: awarded, totalPoints: total });
+});
+
+app.get("/api/leaderboard", (_req, res) => {
+  const top = [...scores.entries()]
+    .map(([userId, points]) => ({ userId, points }))
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 20);
+  res.json(top);
+});
 
 
 
