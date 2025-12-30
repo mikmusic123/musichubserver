@@ -113,7 +113,7 @@ export async function createSplitJob(
   if (options.outputFormat) form.append("outputFormat", options.outputFormat);
 
   return safeFetchJson<CreateSplitResponse>(
-    `${API_BASE}/splitter/split`,
+    `https://musichubserver.onrender.com/splitter/split`,
     {
       method: "POST",
       body: form,
