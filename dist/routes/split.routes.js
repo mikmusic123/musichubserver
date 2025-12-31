@@ -10,7 +10,6 @@ const corsOpts = {
     allowedHeaders: ["Content-Type", "Authorization", "x-worker-secret"],
 };
 router.use(cors(corsOpts));
-router.options("*", cors(corsOpts));
 // ---------- upload ----------
 const upload = multer({
     storage: multer.memoryStorage(),
