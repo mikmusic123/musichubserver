@@ -74,22 +74,19 @@ async function createWorkerJob(file) {
     form.append("file", blob, file.originalname || "upload.bin");
     const res = await fetch(`${WORKER_URL}/v1/split`, {
         method: "POST",
-        headers: { "x-worker-secret": "super-long-random-secret" },
         body: form, // DO NOT set Content-Type; fetch sets boundary
     });
-    if (!res.ok) {
-        const body = await readBodySafe(res);
-        throw new Error(`Worker create failed (${res.status}): ${body}`);
-    }
+    // if (!res.ok) {
+    //   const body = await readBodySafe(res);
+    //   throw new Error(`Worker create failed (${res.status}): ${body}`);
+    // }
     const data = (await res.json());
     if (!data.jobId)
         throw new Error("Worker response missing jobId");
     return { jobId: data.jobId };
 }
 async function fetchWorkerJob(jobId) {
-    const res = await fetch(`${WORKER_URL}/status/${encodeURIComponent(jobId)}`, {
-        headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},
-    });
+    const res = await fetch(`${WORKER_URL}/status/${encodeURIComponent(jobId)}`, {});
     if (!res.ok) {
         console.log(JSON.stringify(res.body));
         const body = await readBodySafe(res);

@@ -103,14 +103,13 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
 
   const res = await fetch(`${WORKER_URL}/v1/split`, {
     method: "POST",
-    headers:  {"x-worker-secret": "super-long-random-secret" },
     body: form as any, // DO NOT set Content-Type; fetch sets boundary
   });
 
-  if (!res.ok) {
-    const body = await readBodySafe(res);
-    throw new Error(`Worker create failed (${res.status}): ${body}`);
-  }
+  // if (!res.ok) {
+  //   const body = await readBodySafe(res);
+  //   throw new Error(`Worker create failed (${res.status}): ${body}`);
+  // }
 
   const data = (await res.json()) as { jobId?: string };
   if (!data.jobId) throw new Error("Worker response missing jobId");
@@ -119,7 +118,6 @@ async function createWorkerJob(file: Express.Multer.File): Promise<{ jobId: stri
 
 async function fetchWorkerJob(jobId: string): Promise<WorkerJob> {
   const res = await fetch(`${WORKER_URL}/status/${encodeURIComponent(jobId)}`, {
-  headers: WORKER_SECRET ? { "x-worker-secret": WORKER_SECRET } : {},
   });
 
   if (!res.ok) {
