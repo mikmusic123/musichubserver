@@ -14,7 +14,7 @@ const corsOpts = {
 };
 
 router.use(cors(corsOpts));
-router.options("/*", cors(corsOpts));
+router.options("/.*", cors(corsOpts));
 //router.options("*", cors(corsOpts));
 
 type WorkerJob = {
